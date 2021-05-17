@@ -17,6 +17,7 @@ let playerOneObject = {
 	status: 'normal',
 	attackTiles: [],
 	tempTiles: [],
+	lives: 3,
 };
 let playerTwoObject = {
 	index: 99,
@@ -24,6 +25,7 @@ let playerTwoObject = {
 	status: 'normal',
 	attackTiles: [],
 	tempTiles: [],
+	lives: 3,
 };
 let boardGrid = [
 	0,0,0,0,0,0,0,0,0,0,
@@ -82,8 +84,8 @@ io.on('connection', (socket) => {
 		if(statusChange.player === 1){
 			playerOneObject.status = statusChange.status;
 			playerOneObject.index = statusChange.index;
-			console.log(playerOneObject.status)
-			io.emit('giveUserInformation', {
+			console.log(playerOneObject.status, 1)
+			io.emit('giveChangePlayerStatus', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
@@ -91,7 +93,8 @@ io.on('connection', (socket) => {
 		} else if (statusChange.player === 100){
 			playerTwoObject.status = statusChange.status;
 			playerTwoObject.index = statusChange.index;
-			io.emit('giveUserInformation', {
+			console.log(playerTwoObject.status, 100)
+			io.emit('giveChangePlayerStatus', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
@@ -121,6 +124,40 @@ io.on('connection', (socket) => {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
+			})
+		}
+	})
+
+	socket.on('sendPlayerAttack', attack => {
+		console.log(attack.boardState, attack.player)
+
+		if(attack.player === 1) {
+			boardGrid = attack.boardState
+			io.emit('givePlayerAttack', {
+				boardState: boardGrid
+			})
+		} else if (attack.player === 100) {
+			boardGrid = attack.boardState
+			io.emit('givePlayerAttack', {
+				boardState: boardGrid
+			})
+		}
+	})
+
+	socket.on('sendPlayerLives', lives => {
+		console.log(lives.player, lives.lives, 'changing the player lives')
+
+		if(lives.player === 1) {
+			playerOneObject.lives = lives.lives
+			io.emit('givePlayerHealth', {
+				playerOne: playerOneObject,
+				playerTwo: playerTwoObject,
+			})
+		} else if (lives.player === 100) {
+			playerTwoObject.lives = lives.lives
+			io.emit('givePlayerHealth', {
+				playerOne: playerOneObject,
+				playerTwo: playerTwoObject,
 			})
 		}
 	})
