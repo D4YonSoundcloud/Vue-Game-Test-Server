@@ -25,7 +25,18 @@ let playerTwoObject = {
 	attackTiles: [],
 	tempTiles: [],
 };
-let boardGrid = [];
+let boardGrid = [
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,0,0,0,
+];
 
 app.use(cors);
 
@@ -52,16 +63,17 @@ io.on('connection', (socket) => {
 		io.emit('giveUserInformation', {
 			playerOne: playerOneObject,
 			playerTwo: playerTwoObject,
+			boardState: boardGrid,
 		})
 	})
 
 	socket.on('sendGridState', boardGridState => {
-		console.log(boardGridState, 'this is from the state')
+		console.log(boardGridState.grid, 'this is from the state', boardGridState.username)
 
-		boardGrid = boardGridState
+		boardGrid = boardGridState.grid
 
-		console.log(boardGrid, 'this is what we are sending');
-		io.emit('giveGridState', {
+		console.log(boardGrid, 'this is what we are sending', boardGridState.username);
+		socket.broadcast.emit('giveGridState', {
 			gridState: boardGrid,
 		})
 	})
@@ -74,6 +86,7 @@ io.on('connection', (socket) => {
 			io.emit('giveUserInformation', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
+				boardState: boardGrid,
 			})
 		} else if (statusChange.player === 100){
 			playerTwoObject.status = statusChange.status;
@@ -81,24 +94,33 @@ io.on('connection', (socket) => {
 			io.emit('giveUserInformation', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
+				boardState: boardGrid,
 			})
 		}
 	})
 
 	socket.on('sendUpdatePlayerIndex', indexChange => {
 		if(indexChange.player === 1){
+			console.log(playerOneObject.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player one')
 			playerOneObject.index = indexChange.index;
-			console.log(playerOneObject.index, indexChange.index, 'player one')
+			boardGrid[indexChange.index] = indexChange.player;
+			boardGrid[indexChange.oldIndex] = indexChange.oldValue;
+
 			io.emit('giveUserInformation', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
+				boardState: boardGrid,
 			})
 		} else if (indexChange.player === 100){
+			console.log(playerTwoObject.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player two')
 			playerTwoObject.index = indexChange.index;
-			console.log(playerTwoObject.index, indexChange.index, 'player two')
+			boardGrid[indexChange.index] = indexChange.player;
+			boardGrid[indexChange.oldIndex] = indexChange.oldValue;
+
 			io.emit('giveUserInformation', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
+				boardState: boardGrid,
 			})
 		}
 	})
