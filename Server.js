@@ -12,6 +12,8 @@ const io = new Server(server, {
 
 let users = [];
 let playerOneObject = {
+	id: '',
+	username: '',
 	index: 0,
 	state: 1,
 	status: 'normal',
@@ -20,6 +22,8 @@ let playerOneObject = {
 	lives: 3,
 };
 let playerTwoObject = {
+	id: '',
+	username: '',
 	index: 99,
 	state: 100,
 	status: 'normal',
@@ -47,22 +51,37 @@ app.get('/', (req,res) => {
 })
 
 io.on('connection', (socket) => {
+	let query = socket.handshake.query;
+	let roomId = query.roomId;
+
+	console.log(roomId, query)
+
+	socket.join(roomId)
+
 	socket.emit('userJoined', {
-		users: users.map(s => s.username)
+		users: users.map(s => s.username),
+		userIDs: users.map(s => s.playerId)
 	})
 
 	socket.on('newUser', username => {
-		console.log('new user called!', username)
-		socket.username = username;
+		if(users.length === 2){
+			return console.log('no more users can enter the match')
+		}
+
+		console.log('new user called!', username.id, username.username)
+		socket.username = username.username;
+		socket.playerId = username.id;
 		users.push(socket)
+
 		while(users.length > 2) {
 			users.shift();
 			console.log(users.map(s => s.username));
 		}
-		io.emit('userOnline', {
-			users: users.map(s => s.username)
+		io.to(roomId).emit('userOnline', {
+			users: users.map(s => s.username),
+			userIDs: users.map(s => s.playerId),
 		})
-		io.emit('giveUserInformation', {
+		io.to(roomId).emit('giveUserInformation', {
 			playerOne: playerOneObject,
 			playerTwo: playerTwoObject,
 			boardState: boardGrid,
@@ -85,7 +104,7 @@ io.on('connection', (socket) => {
 			playerOneObject.status = statusChange.status;
 			playerOneObject.index = statusChange.index;
 			console.log(playerOneObject.status, 1)
-			io.emit('giveChangePlayerStatus', {
+			io.to(roomId).emit('giveChangePlayerStatus', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
@@ -94,7 +113,7 @@ io.on('connection', (socket) => {
 			playerTwoObject.status = statusChange.status;
 			playerTwoObject.index = statusChange.index;
 			console.log(playerTwoObject.status, 100)
-			io.emit('giveChangePlayerStatus', {
+			io.to(roomId).emit('giveChangePlayerStatus', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
@@ -109,7 +128,7 @@ io.on('connection', (socket) => {
 			boardGrid[indexChange.index] = indexChange.player;
 			boardGrid[indexChange.oldIndex] = indexChange.oldValue;
 
-			io.emit('giveUserInformation', {
+			io.to(roomId).emit('giveUserInformation', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
@@ -120,7 +139,7 @@ io.on('connection', (socket) => {
 			boardGrid[indexChange.index] = indexChange.player;
 			boardGrid[indexChange.oldIndex] = indexChange.oldValue;
 
-			io.emit('giveUserInformation', {
+			io.to(roomId).emit('giveUserInformation', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 				boardState: boardGrid,
@@ -133,12 +152,12 @@ io.on('connection', (socket) => {
 
 		if(attack.player === 1) {
 			boardGrid = attack.boardState
-			io.emit('givePlayerAttack', {
+			io.to(roomId).emit('givePlayerAttack', {
 				boardState: boardGrid
 			})
 		} else if (attack.player === 100) {
 			boardGrid = attack.boardState
-			io.emit('givePlayerAttack', {
+			io.to(roomId).emit('givePlayerAttack', {
 				boardState: boardGrid
 			})
 		}
@@ -149,13 +168,13 @@ io.on('connection', (socket) => {
 
 		if(lives.player === 1) {
 			playerOneObject.lives = lives.lives
-			io.emit('givePlayerHealth', {
+			io.to(roomId).emit('givePlayerHealth', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 			})
 		} else if (lives.player === 100) {
 			playerTwoObject.lives = lives.lives
-			io.emit('givePlayerHealth', {
+			io.to(roomId).emit('givePlayerHealth', {
 				playerOne: playerOneObject,
 				playerTwo: playerTwoObject,
 			})
