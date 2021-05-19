@@ -10,40 +10,6 @@ const io = new Server(server, {
 	}
 });
 
-let users = [];
-let playerOneObject = {
-	id: '',
-	username: '',
-	index: 0,
-	state: 1,
-	status: 'normal',
-	attackTiles: [],
-	tempTiles: [],
-	lives: 3,
-};
-let playerTwoObject = {
-	id: '',
-	username: '',
-	index: 99,
-	state: 100,
-	status: 'normal',
-	attackTiles: [],
-	tempTiles: [],
-	lives: 3,
-};
-let boardGrid = [
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-];
-
 let games = {}
 
 app.use(cors);
@@ -86,18 +52,18 @@ io.on('connection', (socket) => {
 			},
 			matchBoardGrid: [
 				0,0,0,0,0,0,0,0,0,0,
+				0,0,25,0,0,0,0,25,0,0,
+				0,25,0,0,0,0,0,0,25,0,
 				0,0,0,0,0,0,0,0,0,0,
 				0,0,0,0,0,0,0,0,0,0,
 				0,0,0,0,0,0,0,0,0,0,
 				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
+				0,25,0,0,0,0,0,0,25,0,
+				0,0,25,0,0,0,0,25,0,0,
 				0,0,0,0,0,0,0,0,0,0,
 			],
 			matchRoomId: roomId,
-			matchCurrentNumberOfUsers: 2,
+			matchCurrentNumberOfUsers: 0,
 		}
 	} else {
 		console.log('room is already in game')
@@ -122,7 +88,9 @@ io.on('connection', (socket) => {
 	socket.on('newUser', username => {
 		if(games[roomId].matchIDs.length === 2) return console.log('no more users can enter the match')
 
-		console.log('new user called!', username.id, username.username)
+		games[roomId].matchCurrentNumberOfUsers++;
+
+		console.log('new user called!', username.id, username.username, games[roomId].matchCurrentNumberOfUsers)
 
 		socket.username = username.username;
 		socket.playerId = username.id;
@@ -153,17 +121,6 @@ io.on('connection', (socket) => {
 			playerOne: games[roomId].matchPlayerOne,
 			playerTwo: games[roomId].matchPlayerTwo,
 			boardState: games[roomId].matchBoardGrid,
-		})
-	})
-
-	socket.on('sendGridState', boardGridState => {
-		console.log(boardGridState.grid, 'this is from the state', boardGridState.username)
-
-		boardGrid = boardGridState.grid
-
-		console.log(boardGrid, 'this is what we are sending', boardGridState.username);
-		socket.broadcast.emit('giveGridState', {
-			gridState: boardGrid,
 		})
 	})
 
