@@ -58,71 +58,101 @@ io.on('connection', (socket) => {
 
 	socket.join(roomId)
 
-	games[roomId] = {
-		matchUsers: users,
-		matchPlayerOne: playerOneObject,
-		matchPlayerTwo: playerTwoObject,
-		matchBoardGrid: boardGrid,
-		matchRoomId: roomId
+	if(!games[roomId]) {
+		console.log('room not in game')
+
+		games[roomId] = {
+			matchUserNames: [],
+			matchIDs: [],
+			matchPlayerOne: {
+				id: '',
+				username: '',
+				index: 0,
+				state: 1,
+				status: 'normal',
+				attackTiles: [],
+				tempTiles: [],
+				lives: 3,
+			},
+			matchPlayerTwo: {
+				id: '',
+				username: '',
+				index: 99,
+				state: 100,
+				status: 'normal',
+				attackTiles: [],
+				tempTiles: [],
+				lives: 3,
+			},
+			matchBoardGrid: [
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,
+			],
+			matchRoomId: roomId,
+			matchCurrentNumberOfUsers: 2,
+		}
+	} else {
+		console.log('room is already in game')
 	}
+
 
 	games['key 1'] = 'bruh';
 
 	console.log(roomId, query)
 
-	let matchUserNames = games[roomId].matchUsers.map(s => s.username)
-	let matchIDs = games[roomId].matchUsers.map(s => s.playerId)
-
+	/**
+	 * Emit to the socket so that the user gets the users and userIDs when the join the lobby
+	 */
 	socket.emit('userJoined', {
-		users: matchUserNames,
-		userIDs: matchIDs,
+		users: games[roomId].matchUserNames,
+		userIDs: games[roomId].matchIDs,
 	})
 
+	/**
+	 * Handles a new user joining
+	 */
 	socket.on('newUser', username => {
-		if(games[roomId].matchUsers.length === 2) return console.log('no more users can enter the match')
+		if(games[roomId].matchIDs.length === 2) return console.log('no more users can enter the match')
 
 		console.log('new user called!', username.id, username.username)
 
 		socket.username = username.username;
 		socket.playerId = username.id;
-		games[roomId].matchUsers.push(socket)
+		games[roomId].matchUserNames.push(username.username)
+		games[roomId].matchIDs.push(username.id)
 
-		let matchUserNames = games[roomId].matchUsers.map(s => s.username)
-		let matchIDs = games[roomId].matchUsers.map(s => s.playerId)
+		console.log(games[roomId].matchUserNames, games[roomId].matchIDs)
 
-		console.log(matchIDs, matchUserNames)
-
-		if( username.id === matchIDs[0] ) {
+		if( username.id === games[roomId].matchIDs[0] ) {
 			console.log('we are assigning the id and username')
 			games[roomId].matchPlayerOne.id = username.id
 			games[roomId].matchPlayerOne.username = username.username
 			console.log('we have assigned them', games[roomId].matchPlayerOne.username)
-		} else if ( username.id === matchIDs[1] ) {
+		} else if ( username.id === games[roomId].matchIDs[1] ) {
 			games[roomId].matchPlayerTwo.id = username.id
 			games[roomId].matchPlayerTwo.username = username.username
 		}
 
-		let p1 = games[roomId].matchPlayerOne;
-		let p2 = games[roomId].matchPlayerTwo;
-		let grid = games[roomId].matchBoardGrid;
-
-		// while(games[roomId].matchUsers.length > 2) {
-		// 	games[roomId].matchUsers.shift();
-		// 	console.log(games[roomId].matchUsers.map(s => s.username));
-		// }
-
 		console.log('about to emit')
 
 		io.to(roomId).emit('userOnline', {
-			users: matchUserNames,
-			userIDs: matchIDs,
-			boardState: grid,
+			users: games[roomId].matchUserNames,
+			userIDs: games[roomId].matchIDs,
+			boardState: games[roomId].matchBoardGrid,
 		})
 
 		io.to(roomId).emit('giveUserInformation', {
-			playerOne: p1,
-			playerTwo: p2,
-			boardState: grid,
+			playerOne: games[roomId].matchPlayerOne,
+			playerTwo: games[roomId].matchPlayerTwo,
+			boardState: games[roomId].matchBoardGrid,
 		})
 	})
 
@@ -137,85 +167,169 @@ io.on('connection', (socket) => {
 		})
 	})
 
+	/**
+	 * Updates the player status
+	 */
 	socket.on('sendChangePlayerStatus', statusChange => {
 		if(statusChange.player === 1){
-			games[roomId].playerOneObject.status = statusChange.status;
-			games[roomId].playerOneObject.index = statusChange.index;
-			console.log(games[roomId].playerOneObject.status, 1)
+			games[roomId].matchPlayerOne.status = statusChange.status;
+			games[roomId].matchPlayerOne.index = statusChange.index;
+			console.log(games[roomId].matchPlayerOne.status, 1)
 			io.to(roomId).emit('giveChangePlayerStatus', {
-				playerOne: games[roomId].playerOneObject,
-				playerTwo: games[roomId].playerTwoObject,
-				boardState: games[roomId].boardGrid,
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
 			})
 		} else if (statusChange.player === 100){
-			games[roomId].playerTwoObject.status = statusChange.status;
-			games[roomId].playerTwoObject.index = statusChange.index;
-			console.log(games[roomId].playerTwoObject.status, 100)
+			games[roomId].matchPlayerTwo.status = statusChange.status;
+			games[roomId].matchPlayerTwo.index = statusChange.index;
+			console.log(games[roomId].matchPlayerTwo.status, 100)
 			io.to(roomId).emit('giveChangePlayerStatus', {
-				playerOne: games[roomId].playerOneObject,
-				playerTwo: games[roomId].playerTwoObject,
-				boardState: games[roomId].boardGrid,
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
 			})
 		}
 	})
 
+	/**
+	 * Updates the player index + board
+	 */
 	socket.on('sendUpdatePlayerIndex', indexChange => {
 		if(indexChange.player === 1){
-			console.log(games[roomId].playerOneObject.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player one')
-			games[roomId].playerOneObject.index = indexChange.index;
-			games[roomId].boardGrid[indexChange.index] = indexChange.player;
-			games[roomId].boardGrid[indexChange.oldIndex] = indexChange.oldValue;
+			console.log(games[roomId].matchPlayerOne.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player one')
+			games[roomId].matchPlayerOne.index = indexChange.index;
+			games[roomId].matchBoardGrid[indexChange.index] = indexChange.player;
+			games[roomId].matchBoardGrid[indexChange.oldIndex] = indexChange.oldValue;
 
 			io.to(roomId).emit('giveUserInformation', {
-				playerOne: games[roomId].playerOneObject,
-				playerTwo: games[roomId].playerTwoObject,
-				boardState: games[roomId].boardGrid,
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
 			})
 		} else if (indexChange.player === 100){
-			console.log(games[roomId].playerTwoObject.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player two')
-			games[roomId].playerTwoObject.index = indexChange.index;
-			games[roomId].boardGrid[indexChange.index] = indexChange.player;
-			games[roomId].boardGrid[indexChange.oldIndex] = indexChange.oldValue;
+			console.log(games[roomId].matchPlayerTwo.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player two')
+			games[roomId].matchPlayerTwo.index = indexChange.index;
+			games[roomId].matchBoardGrid[indexChange.index] = indexChange.player;
+			games[roomId].matchBoardGrid[indexChange.oldIndex] = indexChange.oldValue;
 
 			io.to(roomId).emit('giveUserInformation', {
-				playerOne: games[roomId].playerOneObject,
-				playerTwo: games[roomId].playerTwoObject,
-				boardState: games[roomId].boardGrid,
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
 			})
 		}
 	})
 
+	/**
+	 * Handles the player attacks
+	 */
 	socket.on('sendPlayerAttack', attack => {
 		console.log(attack.boardState, attack.player)
 
 		if(attack.player === 1) {
-			games[roomId].boardGrid = attack.boardState
+			games[roomId].matchBoardGrid = attack.boardState
 			io.to(roomId).emit('givePlayerAttack', {
-				boardState: games[roomId].boardGrid
+				boardState: games[roomId].matchBoardGrid
 			})
 		} else if (attack.player === 100) {
-			games[roomId].boardGrid = attack.boardState
+			games[roomId].matchBoardGrid = attack.boardState
 			io.to(roomId).emit('givePlayerAttack', {
-				boardState: games[roomId].boardGrid
+				boardState: games[roomId].matchBoardGrid
 			})
 		}
 	})
 
+	/**
+	 * Handles the player Lives
+	 */
 	socket.on('sendPlayerLives', lives => {
 		console.log(lives.player, lives.lives, 'changing the player lives')
 
 		if(lives.player === 1) {
-			games[roomId].playerOneObject.lives = lives.lives
+			games[roomId].matchPlayerOne.lives = lives.lives
 			io.to(roomId).emit('givePlayerHealth', {
-				playerOne: games[roomId].playerOneObject,
-				playerTwo: games[roomId].playerTwoObject,
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
 			})
 		} else if (lives.player === 100) {
-			playerTwoObject.lives = lives.lives
+			games[roomId].matchPlayerTwo.lives = lives.lives
 			io.to(roomId).emit('givePlayerHealth', {
-				playerOne: games[roomId].playerOneObject,
-				playerTwo: games[roomId].playerTwoObject,
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
 			})
+		}
+	})
+
+	/**
+	 * Handles when a socket disconnects
+	 */
+	socket.on('disconnectFromRoom', player => {
+		console.log(player)
+
+		if(player === 1){
+			console.log(games[roomId].matchIDs.length)
+			if(games[roomId].matchIDs.length === 1){
+				delete games[roomId]
+				console.log(games);
+			} else {
+				games[roomId].matchUserNames.shift();
+				games[roomId].matchIDs.shift();
+				games[roomId].matchPlayerOne = {
+					id: '',
+					username: '',
+					index: 0,
+					state: 1,
+					status: 'normal',
+					attackTiles: [],
+					tempTiles: [],
+					lives: 3,
+				}
+
+				io.to(roomId).emit('giveUserInformation', {
+					playerOne: games[roomId].matchPlayerOne,
+					playerTwo: games[roomId].matchPlayerTwo,
+					boardState: games[roomId].matchBoardGrid,
+				})
+			}
+
+		} else if (player === 100) {
+
+			if(games[roomId].matchIDs.length === 1){
+				delete games[roomId]
+				console.log(games);
+			} else {
+				games[roomId].matchUserNames.pop();
+				games[roomId].matchIDs.pop();
+				games[roomId].matchPlayerTwo = {
+					id: '',
+					username: '',
+					index: 99,
+					state: 100,
+					status: 'normal',
+					attackTiles: [],
+					tempTiles: [],
+					lives: 3,
+				}
+
+				io.to(roomId).emit('giveUserInformation', {
+					playerOne: games[roomId].matchPlayerOne,
+					playerTwo: games[roomId].matchPlayerTwo,
+					boardState: games[roomId].matchBoardGrid,
+				})
+			}
+
+		}
+	})
+
+	socket.on('disconnect', () => {
+		console.log('the user has disconnected', roomId)
+		if(games[roomId].matchCurrentNumberOfUsers === 1){
+			delete games[roomId]
+			console.log(games)
+		} else {
+			games[roomId].matchCurrentNumberOfUsers--;
+			console.log(games[roomId].matchCurrentNumberOfUsers)
 		}
 	})
 
