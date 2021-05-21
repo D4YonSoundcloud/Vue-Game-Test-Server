@@ -14,6 +14,8 @@ app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
 
 app.use(cors);
 
+console.log('bruh')
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
