@@ -9,10 +9,13 @@ let games = {}
 const PORT = process.env.PORT || 4000;
 const INDEX = '/index.html';
 
+app.use(cors());
+
+console.log('just used cors')
+
 app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
 	.listen(PORT, () => console.log(`Listening on ${PORT}`));
 
-app.use(cors);
 
 console.log('bruh')
 
@@ -23,6 +26,8 @@ const io = new Server(server, {
 		origin: '*',
 	}
 });
+
+console.log('io is set to the right server')
 
 app.get('/', (req,res) => {
 	res.send('<h1>This is where the data will be</h1>')
