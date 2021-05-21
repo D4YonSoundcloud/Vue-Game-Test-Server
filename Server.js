@@ -12,6 +12,9 @@ const io = new Server(server, {
 
 let games = {}
 
+const PORT = process.env.PORT || 3000;
+const INDEX = '/index.html';
+
 app.use(cors);
 
 app.get('/', (req,res) => {
@@ -295,6 +298,6 @@ io.on('connection', (socket) => {
 	console.log(' a user connected ! ')
 })
 
-server.listen(4000, () => {
+server.listen(PORT, () => {
 	console.log('listening on *:3000')
 })
