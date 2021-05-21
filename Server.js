@@ -38,7 +38,7 @@ io.on('connection', (socket) => {
 				status: 'normal',
 				attackTiles: [],
 				tempTiles: [],
-				lives: 3,
+				lives: 50,
 			},
 			matchPlayerTwo: {
 				id: '',
@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
 				status: 'normal',
 				attackTiles: [],
 				tempTiles: [],
-				lives: 3,
+				lives: 50,
 			},
 			matchBoardGrid: [
 				0,0,0,0,0,0,0,0,0,0,
@@ -240,7 +240,7 @@ io.on('connection', (socket) => {
 					status: 'normal',
 					attackTiles: [],
 					tempTiles: [],
-					lives: 3,
+					lives: 50,
 				}
 
 				io.to(roomId).emit('giveUserInformation', {
@@ -266,7 +266,7 @@ io.on('connection', (socket) => {
 					status: 'normal',
 					attackTiles: [],
 					tempTiles: [],
-					lives: 3,
+					lives: 50,
 				}
 
 				io.to(roomId).emit('giveUserInformation', {
@@ -281,7 +281,9 @@ io.on('connection', (socket) => {
 
 	socket.on('disconnect', () => {
 		console.log('the user has disconnected', roomId)
+		if(!games[roomId]) return console.log('there is no room of that id')
 		if(games[roomId].matchCurrentNumberOfUsers === 1){
+			console.log('we are about to delete the room')
 			delete games[roomId]
 			console.log(games)
 		} else {
