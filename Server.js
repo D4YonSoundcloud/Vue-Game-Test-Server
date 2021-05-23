@@ -2,28 +2,19 @@ const express = require('express');
 const app = express();
 const cors = require('cors')
 const http = require('http');
+const server = http.createServer(app);
 const { Server } = require('socket.io');
+const io = new Server(server, {
+	cors: {
+		origin: '*',
+	}
+});
 
 let games = {}
 
 const PORT = process.env.PORT || 4000;
-const INDEX = '/index.html';
 
-app.use(cors());
-
-console.log('just used cors')
-
-app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
-	.listen(PORT, () => console.log(`Listening on ${PORT}`));
-
-
-console.log('bruh')
-
-const server = http.createServer(app);
-
-const io = new Server(server);
-
-console.log('io is set to the right server')
+app.use(cors);
 
 app.get('/', (req,res) => {
 	res.send('<h1>This is where the data will be</h1>')
@@ -304,4 +295,8 @@ io.on('connection', (socket) => {
 	})
 
 	console.log(' a user connected ! ')
+})
+
+server.listen(PORT, () => {
+	console.log('listening on *:4000')
 })
