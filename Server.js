@@ -27,24 +27,41 @@ io.on('connection', (socket) => {
 
 	socket.join(roomId)
 
+	if(Object.keys[games].length === 1) {
+
+		games.tick = true;
+
+		/**
+		 * band-aid tick for the server
+		 */
+		const serverTickInterval = setInterval(() => {
+			if(games.tick === false) clearInterval(serverTickInterval)
+			console.log('tick')
+			serverTick();
+		}, 33)
+	}
+
 	function serverTick() {
-		io.to(roomId).emit('giveChangePlayerStatus', {
-			playerOne: games[roomId].matchPlayerOne,
-			playerTwo: games[roomId].matchPlayerTwo,
-			boardState: games[roomId].matchBoardGrid,
-		})
-		io.to(roomId).emit('giveUserInformation', {
-			playerOne: games[roomId].matchPlayerOne,
-			playerTwo: games[roomId].matchPlayerTwo,
-			boardState: games[roomId].matchBoardGrid,
-		})
-		io.to(roomId).emit('givePlayerAttack', {
-			boardState: games[roomId].matchBoardGrid
-		})
-		io.to(roomId).emit('givePlayerHealth', {
-			playerOne: games[roomId].matchPlayerOne,
-			playerTwo: games[roomId].matchPlayerTwo,
-		})
+		//checks to see if the game exist lol
+		if(games[roomId]){
+			io.to(roomId).emit('giveChangePlayerStatus', {
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
+			})
+			io.to(roomId).emit('giveUserInformation', {
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
+			})
+			io.to(roomId).emit('givePlayerAttack', {
+				boardState: games[roomId].matchBoardGrid
+			})
+			io.to(roomId).emit('givePlayerHealth', {
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+			})
+		}
 	}
 
 	if(!games[roomId]) {
@@ -88,19 +105,7 @@ io.on('connection', (socket) => {
 			matchRoomId: roomId,
 			matchCurrentNumberOfUsers: 0,
 			matchRematchCount: 0,
-			tick: true,
 		}
-
-		/**
-		 * band-aid tick for the server
-		 */
-		const serverTickInterval = setInterval(() => {
-			if(games[roomId].tick === false) clearInterval(serverTickInterval)
-			console.log('tick')
-			serverTick();
-		}, 33)
-
-
 	} else {
 		console.log('room is already in game')
 	}
@@ -228,6 +233,11 @@ io.on('connection', (socket) => {
 			console.log(games[roomId].matchIDs.length)
 			if(games[roomId].matchIDs.length === 1){
 				delete games[roomId]
+
+				if(Object.keys(games).length === 1) {
+					games.tick = false;
+				}
+
 				console.log(games);
 			} else {
 				games[roomId].matchUserNames.shift();
@@ -285,6 +295,11 @@ io.on('connection', (socket) => {
 		if(games[roomId].matchCurrentNumberOfUsers === 1){
 			console.log('we are about to delete the room')
 			delete games[roomId]
+
+			if(Object.keys(games).length === 1) {
+				games.tick = false;
+			}
+
 			console.log(games)
 		} else {
 			games[roomId].matchCurrentNumberOfUsers--;
