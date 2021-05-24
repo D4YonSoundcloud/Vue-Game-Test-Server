@@ -13,12 +13,13 @@ const io = new Server(server, {
 let games = {}
 
 const PORT = process.env.PORT || 4000;
+const INDEX = '/index.html';
 
 app.use(cors);
-
-app.get('/', (req,res) => {
-	res.send('<h1>This is where the data will be</h1>')
-})
+app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
+// app.get('/', (req,res) => {
+// 	res.send('<h1>This is where the data will be</h1>')
+// })
 
 io.on('connection', (socket) => {
 	let query = socket.handshake.query;
@@ -66,6 +67,7 @@ io.on('connection', (socket) => {
 			],
 			matchRoomId: roomId,
 			matchCurrentNumberOfUsers: 0,
+			matchRematchCount: 0,
 		}
 	} else {
 		console.log('room is already in game')
@@ -294,9 +296,64 @@ io.on('connection', (socket) => {
 		}
 	})
 
+	socket.on('sendAddToRematch', rematch => {
+		if(games[roomId].matchRematchCount === 1){
+			games[roomId] = {
+				matchUserNames: [],
+				matchIDs: [],
+				matchPlayerOne: {
+					id: '',
+					username: '',
+					index: 0,
+					state: 1,
+					status: 'normal',
+					attackTiles: [],
+					tempTiles: [],
+					lives: 50,
+				},
+				matchPlayerTwo: {
+					id: '',
+					username: '',
+					index: 99,
+					state: 100,
+					status: 'normal',
+					attackTiles: [],
+					tempTiles: [],
+					lives: 50,
+				},
+				matchBoardGrid: [
+					0,0,0,0,0,0,0,0,0,0,
+					0,0,25,0,0,0,0,25,0,0,
+					0,25,0,0,0,0,0,0,25,0,
+					0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,0,
+					0,0,0,0,0,0,0,0,0,0,
+					0,25,0,0,0,0,0,0,25,0,
+					0,0,25,0,0,0,0,25,0,0,
+					0,0,0,0,0,0,0,0,0,0,
+				],
+				matchRoomId: roomId,
+				matchCurrentNumberOfUsers: 0,
+				matchRematchCount: 0,
+			}
+			io.to(roomId).emit('giveUserInformation', {
+				playerOne: games[roomId].matchPlayerOne,
+				playerTwo: games[roomId].matchPlayerTwo,
+				boardState: games[roomId].matchBoardGrid,
+			})
+		} else {
+			games[roomId].matchRematchCount++;
+			io.to(roomId).emit('givePlayerRematchCount', {
+				rematchCount: games[roomId].matchRematchCount,
+			})
+		}
+	})
+
 	console.log(' a user connected ! ')
 })
 
 server.listen(PORT, () => {
 	console.log('listening on *:4000')
 })
+
