@@ -346,6 +346,7 @@ io.on('connection', (socket) => {
 				playerOne: games[roomId].matchPlayerOne,
 				playerTwo: games[roomId].matchPlayerTwo,
 			})
+			io.to(roomId).emit('giveRestartGame')
 		} else {
 			games[roomId].matchRematchCount++;
 			io.to(roomId).emit('givePlayerRematchCount', {
