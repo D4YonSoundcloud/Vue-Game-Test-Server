@@ -27,7 +27,7 @@ io.on('connection', (socket) => {
 
 	socket.join(roomId)
 
-	if(Object.keys[games].length === 1) {
+	if(Object.keys(games).length === 0) {
 
 		games.tick = true;
 
