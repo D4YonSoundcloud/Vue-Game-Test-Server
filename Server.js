@@ -37,12 +37,24 @@ io.on('connection', (socket) => {
 	socket.join(roomId)
 
 	if(Object.keys(games).length === 0) {
-
 		games.tick = true;
 	}
 
 	function serverPhysicsTick() {
-		console.log(games[roomId].clientInputs, 'tick')
+		console.log(games[roomId].clientInputs, games[roomId].clientStatusChanges, 'tick')
+
+		for(let statusChange of games[roomId].clientStatusChanges){
+			handleStatusChange(statusChange)
+		}
+
+		for(let playerAttack of games[roomId].clientPlayerAttacks){
+			if(playerAttack.input === 'right' || playerAttack.input === 'left'){
+				console.log('horizontal attack time!')
+				handleHorizontalPlayerAttack(playerAttack);
+			} else {
+				handleVerticalPlayerAttack(playerAttack);
+			}
+		}
 
 		//checks to see if the game exist lol
 		for(let playerInput of games[roomId].clientInputs){
@@ -137,6 +149,8 @@ io.on('connection', (socket) => {
 			serverUpdateTickInterval: undefined,
 			tick: true,
 			clientInputs: [],
+			clientStatusChanges: [],
+			clientPlayerAttacks: [],
 		}
 
 		/**
@@ -203,10 +217,24 @@ io.on('connection', (socket) => {
 	})
 
 	/**
-	 * Handles new user input
+	 * Handles a new user-input
 	 */
 	socket.on('sendPlayerInput', playerInput => {
 		games[roomId].clientInputs.push(playerInput)
+	})
+
+	/**
+	 * Handles a new player status-change
+	 */
+	socket.on('sendPlayerStatusChange',statusChange => {
+		games[roomId].clientStatusChanges.push(statusChange)
+	})
+
+	/**
+	 * Handles a new player attack
+	 */
+	socket.on('sendPlayerAttack', playerAttack => {
+		games[roomId].clientPlayerAttacks.push(playerAttack);
 	})
 
 	/**
@@ -217,8 +245,14 @@ io.on('connection', (socket) => {
 		let playerState = playerInput.player === 1 ? games[roomId].matchPlayerOne.state : games[roomId].matchPlayerTwo.state
 
 		if((playerIndex + 1)%10 === 0){
+			if(games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 25) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 1 || games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 100) return console.log('you are hitting a wall bro')
+
 			swap(playerIndex - (10 - 1), playerIndex - (10 - 1), 'rightWall', playerState)
 		} else {
+			if(games[roomId].matchBoardGrid[playerIndex + 1] === 25) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex + 1] === 1 || games[roomId].matchBoardGrid[playerIndex + 1] === 100) return console.log('you are hitting a wall bro')
+
 			swap(playerIndex + 1, playerIndex + 1, playerInput.input, playerState)
 		}
 	}
@@ -228,8 +262,14 @@ io.on('connection', (socket) => {
 		let playerState = playerInput.player === 1 ? games[roomId].matchPlayerOne.state : games[roomId].matchPlayerTwo.state
 
 		if((playerIndex + 1)%10 === 1){
+			if(games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 25) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 1 || games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 100) return console.log('you are hitting a wall bro')
+
 			swap(playerIndex + (10 - 1), playerIndex + (10 - 1), 'leftWall', playerState)
 		} else {
+			if(games[roomId].matchBoardGrid[playerIndex - 1] === 25) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex - 1] === 1 || games[roomId].matchBoardGrid[playerIndex - 1] === 100) return console.log('you are hitting a wall bro')
+
 			swap(playerIndex - 1, playerIndex - 1, playerInput.input, playerState)
 		}
 	}
@@ -240,15 +280,88 @@ io.on('connection', (socket) => {
 		let playerIndex = playerInput.player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
 		let playerState = playerInput.player === 1 ? games[roomId].matchPlayerOne.state : games[roomId].matchPlayerTwo.state
 
+		console.log(playerIndex)
+
 		if(playerIndex <= firstRowEnd){
+			let oldPlayerIndex = playerIndex;
+			let temp = games[roomId].matchBoardGrid[lastRowStart + playerIndex]
+
+			if(temp === 25) {
+				games[roomId].shift();
+				return console.log('there is a wall here')
+			}
+			if(temp === 100 || temp === 1){
+				return console.log('there is a player here')
+			}
+
+			console.log(playerState, playerIndex, games[roomId].matchBoardGrid)
+
+
+			if(playerState === 1){
+				games[roomId].matchPlayerOne.index = lastRowStart + playerIndex;
+				playerIndex = games[roomId].matchPlayerOne.index;
+			} else {
+				games[roomId].matchPlayerTwo.index = lastRowStart + playerIndex;
+				playerIndex = games[roomId].matchPlayerTwo.index
+			}
+
+			console.log(playerIndex, playerState)
+			games[roomId].matchBoardGrid[playerIndex] = playerState
+			games[roomId].matchBoardGrid[oldPlayerIndex] = 0;
+
+			games[roomId].clientInputs.shift();
+
+			console.log('player has been swapped and input removed', games[roomId].matchBoardGrid, games[roomId].matchPlayerOne)
+
 
 		} else {
-			this.swap(playerIndex - 10, playerIndex - 10, playerInput.input, playerState)
+			if(games[roomId].matchBoardGrid[playerIndex - 10] === 25) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex - 10] === 1 || games[roomId].matchBoardGrid[playerIndex + 10] === 100) return console.log('you are hitting a wall bro')
+
+			swap(playerIndex - 10, playerIndex - 10, playerInput.input, playerState)
 		}
 	}
 
 	const movePlayerDown = ( playerInput ) => {
 
+		let lastRowStart = 100 - 10;
+		let playerIndex = playerInput.player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
+		let playerState = playerInput.player === 1 ? games[roomId].matchPlayerOne.state : games[roomId].matchPlayerTwo.state
+
+		if(playerIndex >= lastRowStart && playerIndex <= 100 - 1){
+			let difference = playerIndex - lastRowStart
+			let oldPlayerIndex = playerIndex;
+			let temp = games[roomId].matchBoardGrid[difference]
+			playerIndex = difference;
+
+			if(temp === 25) {
+				games[roomId].shift();
+				return console.log('there is a wall here')
+			}
+			if(temp === 100 || temp === 1){
+				return console.log('there is a player here')
+			}
+
+			console.log(playerState, playerIndex, games[roomId].matchBoardGrid)
+
+			if(playerState === 1){
+				games[roomId].matchPlayerOne.index = playerIndex;
+			} else {
+				games[roomId].matchPlayerTwo.index = playerIndex;
+			}
+
+			games[roomId].matchBoardGrid[playerIndex] = playerState
+			games[roomId].matchBoardGrid[oldPlayerIndex] = 0;
+
+			games[roomId].clientInputs.shift();
+
+			console.log('player has been swapped and input removed', games[roomId].matchBoardGrid, games[roomId].matchPlayerOne)
+		} else {
+			if(games[roomId].matchBoardGrid[playerIndex + 10] === 25) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex + 10] === 1 || games[roomId].matchBoardGrid[playerIndex + 10] === 100) return console.log('you are hitting a wall bro')
+
+			swap(playerIndex + 10, playerIndex + 10, playerInput.input, playerState)
+		}
 	}
 
 	/**
@@ -268,10 +381,137 @@ io.on('connection', (socket) => {
 		games[roomId].matchBoardGrid[newPlayerIndex] = playerState;
 		games[roomId].matchBoardGrid[newPlayerIndex + swapLookUpTable[keyCode]] = temp;
 
-		games[roomId].clientInputs.pop();
+		games[roomId].clientInputs.shift();
 
 		console.log('player has been swapped and input removed', games[roomId].matchBoardGrid, games[roomId].matchPlayerOne)
 	}
+
+	/**
+	 * Handle Status Change function
+	 */
+	const handleStatusChange = (statusChange) => {
+		console.log(statusChange)
+
+		if(statusChange.player === 1) {
+			games[roomId].matchPlayerOne.status = statusChange.status
+			games[roomId].clientStatusChanges.shift()
+		} else {
+			games[roomId].matchPlayerTwo.status = statusChange.status
+			games[roomId].clientStatusChanges.shift()
+		}
+	}
+
+	/**
+	 * Handles Player Attacks
+	 */
+
+	const handleHorizontalPlayerAttack = ( playerAttack ) => {
+		let playerIndex = playerAttack.player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
+		let enemy = playerAttack.player === 1 ? false : true
+
+		let numToSubtract = playerIndex % 10
+		let numToAdd = 10 - numToSubtract
+
+		findAttackTiles(numToSubtract, numToAdd, playerIndex, enemy).then(() => {
+			assignAttackTiles('horizontal', enemy).then(() => {
+				attackCoolDown(enemy);
+			});
+			console.log('this is a horizontal attack')
+		});
+	}
+
+	const handleVerticalPlayerAttack = ( playerAttack ) => {
+
+	}
+
+	async function findAttackTiles(numToSubtract, numToAdd, playerIndex, enemy) {
+		let subtractTileIndex = playerIndex
+		let addTileIndex = playerIndex - 1;
+		// chooses to work through the rest of the function as either player two (enemy = true) or player one (enemy = false)
+		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
+		// let livesAmountString = enemy ? 'playerLives' : 'enemyLives'
+
+		for(let i = 0; i < numToSubtract; i++) {
+			subtractTileIndex--;
+			if(subtractTileIndex !== playerIndex) {
+				if(games[roomId].matchBoardGrid[subtractTileIndex] === 25) break;
+
+				if(games[roomId].matchBoardGrid[subtractTileIndex === 10] || games[roomId].matchBoardGrid[subtractTileIndex] === 11){
+					games[roomId][matchPlayer].tempTiles.push(0)
+				} else if ((games[roomId].matchBoardGrid[subtractTileIndex] === 1 && enemy === true) || (games[roomId].matchBoardGrid[subtractTileIndex] === 100 && enemy === false)) {
+					handleLivesAmount(enemy)
+					continue;
+				} else {
+					games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[subtractTileIndex])
+				}
+				games[roomId][matchPlayer].attackTiles.push(subtractTileIndex)
+			}
+		}
+		for(let i = 0; i < numToAdd; i++){
+			addTileIndex++;
+			if(addTileIndex !== playerIndex){
+				if(games[roomId].matchBoardGrid[addTileIndex] === 25) break;
+
+				if(games[roomId].matchBoardGrid[addTileIndex] === 10 || games[roomId].matchBoardGrid[addTileIndex] === 11){
+					games[roomId][matchPlayer].tempTiles.push(0)
+				} else if ((games[roomId].matchBoardGrid[addTileIndex] === 1 && enemy === true) || (games[roomId].matchBoardGrid[addTileIndex] === 100 && enemy === false)) {
+					handleLivesAmount(enemy)
+					continue;
+				} else {
+					games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[addTileIndex])
+				}
+				games[roomId][matchPlayer].attackTiles.push(addTileIndex)
+			}
+		}
+	}
+
+	const attackCoolDown = (enemy) => {
+		setTimeout(() => {
+			console.log(this.boardState, enemy, 'we are cooling down')
+			resetAttackTiles(enemy).then(() => {
+				console.log('we are sending the reset attack')
+
+				let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
+
+				if(enemy === false){
+					games[roomId].matchPlayerOne.status = 'normal'
+				} else if (enemy === true){
+					games[roomId].matchPlayerTwo.status = 'normal'
+				}
+				games[roomId][matchPlayer].tempTiles = [];
+				games[roomId][matchPlayer].attackTiles = [];
+
+				games[roomId].clientPlayerAttacks.shift()
+
+				//player attack ends here
+			})
+		}, 250)
+	}
+
+	async function assignAttackTiles(direction, enemy) {
+		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
+
+		games[roomId][matchPlayer].attackTiles.forEach((attackTile,index) =>{
+			games[roomId].matchBoardGrid[attackTile] = direction === 'horizontal' ? 10 : 11
+		})
+
+		console.log('assigned the attack tiles', games[roomId].matchBoardGrid)
+	}
+
+	async function resetAttackTiles(enemy) {
+		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
+
+		games[roomId][matchPlayer].attackTiles.forEach((value, index) => {
+			games[roomId].matchBoardGrid[value] = games[roomId][matchPlayer].tempTiles[index]
+		})
+
+		console.log('reset the player attack tiles', games[roomId].matchBoardGrid)
+	}
+
+	const handleLivesAmount = (enemy, livesAmountString) => {
+
+	}
+
 
 	/**
 	 * Updates the player status
