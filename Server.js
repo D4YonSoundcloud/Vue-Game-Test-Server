@@ -40,53 +40,47 @@ io.on('connection', (socket) => {
 		games.tick = true;
 	}
 
+	/**
+	 * function we run every 16ms (60hz tick rate)
+	 */
 	function serverPhysicsTick() {
-		console.log(games[roomId].clientInputs, games[roomId].clientStatusChanges, 'tick')
-
+		//loop through queued player status changes
 		for(let statusChange of games[roomId].clientStatusChanges){
 			handleStatusChange(statusChange)
 		}
 
+		//loop through queued player attack
 		for(let playerAttack of games[roomId].clientPlayerAttacks){
+			console.log(playerAttack.input, 'this is player attackInput', process.uptime())
 			if(playerAttack.input === 'right' || playerAttack.input === 'left'){
-				console.log('horizontal attack time!')
 				handleHorizontalPlayerAttack(playerAttack);
 			} else {
 				handleVerticalPlayerAttack(playerAttack);
 			}
 		}
 
-		//checks to see if the game exist lol
+		//loop through queued player inputs
 		for(let playerInput of games[roomId].clientInputs){
 			if(playerInput.input === 'right') {
-				console.log('the input is right')
+				assignButtonPress(playerInput);
 				movePlayerRight(playerInput);
+				console.log('the input is right', games[roomId].matchPlayerOne.buttonPressed, games[roomId].matchPlayerTwo.buttonPressed)
 			} else if (playerInput.input === 'left') {
-				console.log('the input is left')
+				assignButtonPress(playerInput);
 				movePlayerLeft(playerInput);
+				console.log('the input is left', games[roomId].matchPlayerOne.buttonPressed, games[roomId].matchPlayerTwo.buttonPressed)
 			} else if (playerInput.input === 'up') {
 				console.log('the input is up')
+				assignButtonPress(playerInput);
 				movePlayerUp(playerInput);
 			} else if (playerInput.input === 'down') {
 				console.log('the input is down')
+				assignButtonPress(playerInput);
 				movePlayerDown(playerInput);
 			}
 		}
 
 		if(games[roomId]){
-			// io.to(roomId).emit('giveChangePlayerStatus', {
-			// 	playerOne: games[roomId].matchPlayerOne,
-			// 	playerTwo: games[roomId].matchPlayerTwo,
-			// 	boardState: games[roomId].matchBoardGrid,
-			// })
-			// io.to(roomId).emit('giveUserInformation', {
-			// 	playerOne: games[roomId].matchPlayerOne,
-			// 	playerTwo: games[roomId].matchPlayerTwo,
-			// 	boardState: games[roomId].matchBoardGrid,
-			// })
-			// io.to(roomId).emit('givePlayerAttack', {
-			// 	boardState: games[roomId].matchBoardGrid
-			// })
 			io.to(roomId).emit('givePlayerHealth', {
 				playerOne: games[roomId].matchPlayerOne,
 				playerTwo: games[roomId].matchPlayerTwo,
@@ -94,6 +88,9 @@ io.on('connection', (socket) => {
 		}
 	}
 
+	/**
+	 * function we run every 33ms (30hz tick rate)
+	 */
 	function serverUpdateTick() {
 		io.to(roomId).emit('giveServerUpdate', {
 			matchPlayerOne: games[roomId].matchPlayerOne,
@@ -119,6 +116,7 @@ io.on('connection', (socket) => {
 				attackTiles: [],
 				tempTiles: [],
 				lives: 50,
+				buttonPressed: 'down',
 			},
 			matchPlayerTwo: {
 				id: '',
@@ -129,6 +127,7 @@ io.on('connection', (socket) => {
 				attackTiles: [],
 				tempTiles: [],
 				lives: 50,
+				buttonPressed: 'up',
 			},
 			matchBoardGrid: [
 				1,0,0,0,0,0,0,0,0,0,
@@ -156,8 +155,8 @@ io.on('connection', (socket) => {
 		/**
 		 * physics tick for the server
 		 */
-		games[roomId].serverPhysicsInterval = setInterval(() => {
-			if(games[roomId].tick === false) clearInterval(games[roomId].serverPhysicsInterval)
+		games[roomId].serverPhysicsTickInterval = setInterval(() => {
+			if(games[roomId].tick === false) clearInterval(games[roomId].serverPhysicsTickInterval)
 			serverPhysicsTick();
 		}, 1000 / 60)
 
@@ -383,14 +382,14 @@ io.on('connection', (socket) => {
 
 		games[roomId].clientInputs.shift();
 
-		console.log('player has been swapped and input removed', games[roomId].matchBoardGrid, games[roomId].matchPlayerOne)
+		console.log('player has been swapped and input removed')
 	}
 
 	/**
 	 * Handle Status Change function
 	 */
 	const handleStatusChange = (statusChange) => {
-		console.log(statusChange)
+		console.log(statusChange, 'status changing')
 
 		if(statusChange.player === 1) {
 			games[roomId].matchPlayerOne.status = statusChange.status
@@ -402,26 +401,69 @@ io.on('connection', (socket) => {
 	}
 
 	/**
+	 * Handle button pressed assignments
+	 */
+	const assignButtonPress = (buttonPressed) => {
+		if(buttonPressed.player === 1) {
+			games[roomId].matchPlayerOne.buttonPressed = buttonPressed.input
+		} else if (buttonPressed.player === 100) {
+			games[roomId].matchPlayerTwo.buttonPressed = buttonPressed.input
+		}
+	}
+
+	/**
 	 * Handles Player Attacks
 	 */
-
 	const handleHorizontalPlayerAttack = ( playerAttack ) => {
+
 		let playerIndex = playerAttack.player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
 		let enemy = playerAttack.player === 1 ? false : true
 
+		if(enemy === false){
+			games[roomId].matchPlayerOne.status = 'attacking';
+		} else {
+			games[roomId].matchPlayerTwo.status = 'attacking';
+		}
+
+		//num to sub is amount of tiles to the left, while numToAdd is amount of tiles to the right
 		let numToSubtract = playerIndex % 10
 		let numToAdd = 10 - numToSubtract
 
+		console.log('about to find horizontal attack tiles')
+
 		findAttackTiles(numToSubtract, numToAdd, playerIndex, enemy).then(() => {
+			console.log('this is a horizontal attack')
+
 			assignAttackTiles('horizontal', enemy).then(() => {
+				console.log('assigned horizontal attack')
 				attackCoolDown(enemy);
 			});
-			console.log('this is a horizontal attack')
 		});
 	}
 
 	const handleVerticalPlayerAttack = ( playerAttack ) => {
+		let playerIndex = playerAttack.player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
+		let enemy = playerAttack.player === 1 ? false : true
 
+		if(enemy === false){
+			games[roomId].matchPlayerOne.status = 'attacking';
+		} else {
+			games[roomId].matchPlayerTwo.status = 'attacking';
+		}
+
+		let trackingNumDownward = playerIndex - 10;
+		let trackingNumUpward = playerIndex + 10;
+
+		console.log('about to find vertical attack tiles')
+
+		findAttackTilesVertical(trackingNumDownward, trackingNumUpward, enemy).then(() => {
+			console.log('this is a vertical attack')
+
+			assignAttackTiles('vertical', enemy).then(() => {
+				console.log('assigned vertical attack')
+				attackCoolDown(enemy)
+			})
+		})
 	}
 
 	async function findAttackTiles(numToSubtract, numToAdd, playerIndex, enemy) {
@@ -431,8 +473,11 @@ io.on('connection', (socket) => {
 		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
 		// let livesAmountString = enemy ? 'playerLives' : 'enemyLives'
 
+		console.log('finding attack tiles')
+
 		for(let i = 0; i < numToSubtract; i++) {
 			subtractTileIndex--;
+
 			if(subtractTileIndex !== playerIndex) {
 				if(games[roomId].matchBoardGrid[subtractTileIndex] === 25) break;
 
@@ -465,12 +510,99 @@ io.on('connection', (socket) => {
 		}
 	}
 
-	const attackCoolDown = (enemy) => {
-		setTimeout(() => {
-			console.log(this.boardState, enemy, 'we are cooling down')
-			resetAttackTiles(enemy).then(() => {
-				console.log('we are sending the reset attack')
+	async function findAttackTilesVertical(numDownward, numUpward, enemy){
+		// chooses to work through the rest of the function as either player two (enemy = true) or player one (enemy = false)
+		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
 
+		if(numDownward >= 0) {
+			if(games[roomId].matchBoardGrid[numDownward] === 25) {
+				console.log('you are hitting a wall downward')
+			} else if(games[roomId].matchBoardGrid[numDownward] === 10 || games[roomId].matchBoardGrid[numDownward] === 11){
+				games[roomId][matchPlayer].tempTiles.push(0)
+				games[roomId][matchPlayer].attackTiles.push(numDownward);
+			} else if (games[roomId].matchBoardGrid[numDownward] === 1 || games[roomId].matchBoardGrid[numDownward] === 100) {
+				handleLivesAmount(enemy)
+			} else {
+				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numDownward])
+				games[roomId][matchPlayer].attackTiles.push(numDownward);
+			}
+		}
+		if(numUpward < 100) {
+			if(games[roomId].matchBoardGrid[numUpward] === 25){
+				console.log('you are hitting a wall upward')
+			} else if(games[roomId].matchBoardGrid[numUpward] === 10 || games[roomId].matchBoardGrid[numUpward] === 11){
+				games[roomId][matchPlayer].tempTiles.push(0)
+				games[roomId][matchPlayer].attackTiles.push(numUpward)
+			} else if (games[roomId].matchBoardGrid[numUpward] === 1 || games[roomId].matchBoardGrid[numUpward] === 100) {
+				handleLivesAmount(enemy)
+			} else {
+				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numUpward])
+				games[roomId][matchPlayer].attackTiles.push(numUpward)
+			}
+		}
+
+		while(numDownward - 10 >= 0){
+			numDownward = numDownward - 10;
+
+			if(games[roomId].matchBoardGrid[numDownward + 10] === 25) break;
+			if(games[roomId].matchBoardGrid[numDownward] === 25) break;
+
+			if(games[roomId].matchBoardGrid[numDownward] === 10 || games[roomId].matchBoardGrid[numDownward] === 11){
+				games[roomId][matchPlayer].tempTiles.push(0)
+			} else if (games[roomId].matchBoardGrid[numDownward] === 1 || games[roomId].matchBoardGrid[numDownward] === 100) {
+				handleLivesAmount(enemy)
+				continue;
+			} else {
+				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numDownward])
+			}
+
+			games[roomId][matchPlayer].attackTiles.push(numDownward);
+		}
+		while(numUpward + 10 < 100){
+			numUpward = numUpward + 10;
+
+			if(games[roomId].matchBoardGrid[numUpward - 10] === 25) break;
+			if(games[roomId].matchBoardGrid[numUpward] === 25) break;
+
+			if(games[roomId].matchBoardGrid[numUpward] === 10 || games[roomId].matchBoardGrid[numUpward] === 11){
+				games[roomId][matchPlayer].tempTiles.push(0)
+			} else if (games[roomId].matchBoardGrid[numUpward] === 1 || games[roomId].matchBoardGrid[numUpward] === 100) {
+				handleLivesAmount(enemy)
+				continue;
+			} else {
+				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numUpward])
+			}
+
+			games[roomId][matchPlayer].attackTiles.push(numUpward);
+		}
+	}
+
+	async function assignAttackTiles(direction, enemy) {
+		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
+
+		games[roomId][matchPlayer].attackTiles.forEach((attackTile,index) =>{
+			games[roomId].matchBoardGrid[attackTile] = direction === 'horizontal' ? 10 : 11
+		})
+	}
+
+	async function resetAttackTiles(enemy) {
+		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
+
+		console.log('resetting attack', games[roomId][matchPlayer].tempTiles)
+
+		games[roomId][matchPlayer].attackTiles.forEach((value, index) => {
+			games[roomId].matchBoardGrid[value] = games[roomId][matchPlayer].tempTiles[index]
+		})
+	}
+
+	const attackCoolDown = (enemy) => {
+
+		games[roomId].clientPlayerAttacks.shift()
+
+		console.log(enemy, 'we are cooling down', process.uptime(), games[roomId].clientPlayerAttacks)
+
+		setTimeout(() => {
+			resetAttackTiles(enemy).then(() => {
 				let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
 
 				if(enemy === false){
@@ -481,66 +613,18 @@ io.on('connection', (socket) => {
 				games[roomId][matchPlayer].tempTiles = [];
 				games[roomId][matchPlayer].attackTiles = [];
 
-				games[roomId].clientPlayerAttacks.shift()
-
 				//player attack ends here
+				console.log('player attack ended', matchPlayer, games[roomId].clientPlayerAttacks, process.uptime())
 			})
 		}, 250)
 	}
 
-	async function assignAttackTiles(direction, enemy) {
-		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
-
-		games[roomId][matchPlayer].attackTiles.forEach((attackTile,index) =>{
-			games[roomId].matchBoardGrid[attackTile] = direction === 'horizontal' ? 10 : 11
-		})
-
-		console.log('assigned the attack tiles', games[roomId].matchBoardGrid)
-	}
-
-	async function resetAttackTiles(enemy) {
-		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
-
-		games[roomId][matchPlayer].attackTiles.forEach((value, index) => {
-			games[roomId].matchBoardGrid[value] = games[roomId][matchPlayer].tempTiles[index]
-		})
-
-		console.log('reset the player attack tiles', games[roomId].matchBoardGrid)
-	}
-
+	/**
+	 * Handles player lives
+	 */
 	const handleLivesAmount = (enemy, livesAmountString) => {
 
 	}
-
-
-	/**
-	 * Updates the player status
-	 */
-	socket.on('sendChangePlayerStatus', statusChange => {
-		if(statusChange.player === 1){
-			games[roomId].matchPlayerOne.status = statusChange.status;
-			games[roomId].matchPlayerOne.index = statusChange.index;
-			console.log(games[roomId].matchPlayerOne.status, 1)
-		} else if (statusChange.player === 100){
-			games[roomId].matchPlayerTwo.status = statusChange.status;
-			games[roomId].matchPlayerTwo.index = statusChange.index;
-			console.log(games[roomId].matchPlayerTwo.status, 100)
-		}
-	})
-
-
-	/**
-	 * Handles the player attacks
-	 */
-	socket.on('sendPlayerAttack', attack => {
-		console.log(attack.boardState, attack.player)
-
-		if(attack.player === 1) {
-			games[roomId].matchBoardGrid = attack.boardState
-		} else if (attack.player === 100) {
-			games[roomId].matchBoardGrid = attack.boardState
-		}
-	})
 
 	/**
 	 * Handles the player Lives
@@ -559,16 +643,17 @@ io.on('connection', (socket) => {
 	 * Handles when a socket disconnects
 	 */
 	socket.on('disconnectFromRoom', player => {
-		console.log(player)
+		console.log(player, games[roomId].matchIDs.length)
 
 		if(player === 1){
 
 			if(games[roomId].matchIDs.length === 1){
 				games[roomId].tick = false;
+
 				setTimeout(() => {
 					delete games[roomId]
 					console.log(games)
-				}, 1000 / 30)
+				}, 1000 / 15)
 			} else {
 				games[roomId].matchUserNames.shift();
 				games[roomId].matchIDs.shift();
@@ -581,6 +666,7 @@ io.on('connection', (socket) => {
 					attackTiles: [],
 					tempTiles: [],
 					lives: 50,
+					buttonPressed: 'down',
 				}
 
 				io.to(roomId).emit('giveUserInformation', {
@@ -594,10 +680,11 @@ io.on('connection', (socket) => {
 
 			if(games[roomId].matchIDs.length === 1){
 				games[roomId].tick = false;
+
 				setTimeout(() => {
 					delete games[roomId]
 					console.log(games);
-				}, 1000 / 30)
+				}, 1000 / 15)
 			} else {
 				games[roomId].matchUserNames.pop();
 				games[roomId].matchIDs.pop();
@@ -610,6 +697,7 @@ io.on('connection', (socket) => {
 					attackTiles: [],
 					tempTiles: [],
 					lives: 50,
+					buttonPressed: 'up'
 				}
 
 				io.to(roomId).emit('giveUserInformation', {
@@ -628,10 +716,11 @@ io.on('connection', (socket) => {
 		if(games[roomId].matchCurrentNumberOfUsers === 1){
 			console.log('we are about to delete the room')
 			games[roomId].tick = false;
+
 			setTimeout(() => {
 				delete games[roomId]
 				console.log(games)
-			}, 1000 / 30)
+			}, 1000 / 15)
 		} else {
 			games[roomId].matchCurrentNumberOfUsers--;
 			console.log(games[roomId].matchCurrentNumberOfUsers)
@@ -640,55 +729,91 @@ io.on('connection', (socket) => {
 
 	socket.on('sendAddToRematch', rematch => {
 		if(games[roomId].matchRematchCount === 1){
-			games[roomId] = {
-				matchUserNames: [],
-				matchIDs: [],
-				matchPlayerOne: {
-					id: '',
-					username: '',
-					index: 0,
-					state: 1,
-					status: 'normal',
-					attackTiles: [],
-					tempTiles: [],
-					lives: 50,
-				},
-				matchPlayerTwo: {
-					id: '',
-					username: '',
-					index: 99,
-					state: 100,
-					status: 'normal',
-					attackTiles: [],
-					tempTiles: [],
-					lives: 50,
-				},
-				matchBoardGrid: [
-					0,0,0,0,0,0,0,0,0,0,
-					0,0,25,0,0,0,0,25,0,0,
-					0,25,0,0,0,0,0,0,25,0,
-					0,0,0,0,0,0,0,0,0,0,
-					0,0,0,0,0,0,0,0,0,0,
-					0,0,0,0,0,0,0,0,0,0,
-					0,0,0,0,0,0,0,0,0,0,
-					0,25,0,0,0,0,0,0,25,0,
-					0,0,25,0,0,0,0,25,0,0,
-					0,0,0,0,0,0,0,0,0,0,
-				],
-				matchRoomId: roomId,
-				matchCurrentNumberOfUsers: 0,
-				matchRematchCount: 0,
-			}
-			io.to(roomId).emit('giveUserInformation', {
-				playerOne: games[roomId].matchPlayerOne,
-				playerTwo: games[roomId].matchPlayerTwo,
-				boardState: games[roomId].matchBoardGrid,
-			})
-			io.to(roomId).emit('givePlayerHealth', {
-				playerOne: games[roomId].matchPlayerOne,
-				playerTwo: games[roomId].matchPlayerTwo,
-			})
-			io.to(roomId).emit('giveRestartGame')
+			let matchUserNames = games[roomId].matchUserNames;
+			let matchUserIDs = games[roomId].matchIDs;
+
+			games[roomId].tick = false
+
+			setTimeout(() => {
+				games[roomId] = {
+					matchUserNames: matchUserNames,
+					matchIDs: matchUserIDs,
+					matchPlayerOne: {
+						id: '',
+						username: '',
+						index: 0,
+						state: 1,
+						status: 'normal',
+						attackTiles: [],
+						tempTiles: [],
+						lives: 50,
+						buttonPressed: 'down',
+					},
+					matchPlayerTwo: {
+						id: '',
+						username: '',
+						index: 99,
+						state: 100,
+						status: 'normal',
+						attackTiles: [],
+						tempTiles: [],
+						lives: 50,
+						buttonPressed: 'up',
+					},
+					matchBoardGrid: [
+						1,0,0,0,0,0,0,0,0,0,
+						0,0,25,0,0,0,0,25,0,0,
+						0,25,0,0,0,0,0,0,25,0,
+						0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,
+						0,0,0,0,0,0,0,0,0,0,
+						0,25,0,0,0,0,0,0,25,0,
+						0,0,25,0,0,0,0,25,0,0,
+						0,0,0,0,0,0,0,0,0,100,
+					],
+					matchRoomId: roomId,
+					matchCurrentNumberOfUsers: 2,
+					matchRematchCount: 0,
+					serverPhysicsTickInterval: undefined,
+					serverUpdateTickInterval: undefined,
+					tick: true,
+					clientInputs: [],
+					clientStatusChanges: [],
+					clientPlayerAttacks: [],
+				}
+
+				/**
+				 * physics tick for the server
+				 */
+				games[roomId].serverPhysicsTickInterval = setInterval(() => {
+					if(games[roomId].tick === false) {
+						console.log('tick has been set to false physics')
+						clearInterval(games[roomId].serverPhysicsTickInterval)
+					}
+					serverPhysicsTick();
+				}, 1000 / 60)
+
+				/**
+				 * server update loop
+				 */
+				games[roomId].serverUpdateTickInterval = setInterval(() => {
+					if(games[roomId].tick === false) {
+						console.log('tick has been set to false server')
+						clearInterval(games[roomId].serverUpdateTickInterval)
+					}
+					serverUpdateTick()
+				}, 1000 / 30)
+
+
+				io.to(roomId).emit('givePlayerHealth', {
+					playerOne: games[roomId].matchPlayerOne,
+					playerTwo: games[roomId].matchPlayerTwo,
+				})
+				io.to(roomId).emit('giveRestartGame')
+			}, 1000/15)
+
+			console.log('sending to restart game!')
 		} else {
 			games[roomId].matchRematchCount++;
 			io.to(roomId).emit('givePlayerRematchCount', {
