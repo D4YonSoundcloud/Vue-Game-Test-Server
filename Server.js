@@ -52,6 +52,7 @@ io.on('connection', (socket) => {
 		//loop through queued player attack
 		for(let playerAttack of games[roomId].clientPlayerAttacks){
 			console.log(playerAttack.input, 'this is player attackInput', process.uptime())
+
 			if(playerAttack.input === 'right' || playerAttack.input === 'left'){
 				handleHorizontalPlayerAttack(playerAttack);
 			} else {
@@ -59,16 +60,22 @@ io.on('connection', (socket) => {
 			}
 		}
 
+		//loop through queued melee attacks (they get their own queue so we can still shift() regular attacks, since melee
+		//attacks have a different cool down then regular attacks
+		for(let meleeAttack of games[roomId].clientMeleeAttacks){
+			handleMeleePlayerAttack(meleeAttack)
+		}
+
 		//loop through queued player inputs
 		for(let playerInput of games[roomId].clientInputs){
 			if(playerInput.input === 'right') {
 				assignButtonPress(playerInput);
 				movePlayerRight(playerInput);
-				console.log('the input is right', games[roomId].matchPlayerOne.buttonPressed, games[roomId].matchPlayerTwo.buttonPressed)
+				console.log('the input is right')
 			} else if (playerInput.input === 'left') {
 				assignButtonPress(playerInput);
 				movePlayerLeft(playerInput);
-				console.log('the input is left', games[roomId].matchPlayerOne.buttonPressed, games[roomId].matchPlayerTwo.buttonPressed)
+				console.log('the input is left')
 			} else if (playerInput.input === 'up') {
 				console.log('the input is up')
 				assignButtonPress(playerInput);
@@ -115,6 +122,8 @@ io.on('connection', (socket) => {
 				status: 'normal',
 				attackTiles: [],
 				tempTiles: [],
+				meleeAttackTiles: [],
+				meleeTempTiles: [],
 				lives: 50,
 				buttonPressed: 'down',
 			},
@@ -126,6 +135,8 @@ io.on('connection', (socket) => {
 				status: 'normal',
 				attackTiles: [],
 				tempTiles: [],
+				meleeAttackTiles: [],
+				meleeTempTiles: [],
 				lives: 50,
 				buttonPressed: 'up',
 			},
@@ -150,6 +161,7 @@ io.on('connection', (socket) => {
 			clientInputs: [],
 			clientStatusChanges: [],
 			clientPlayerAttacks: [],
+			clientMeleeAttacks: [],
 		}
 
 		/**
@@ -234,6 +246,13 @@ io.on('connection', (socket) => {
 	 */
 	socket.on('sendPlayerAttack', playerAttack => {
 		games[roomId].clientPlayerAttacks.push(playerAttack);
+	})
+
+	/**
+	 * Handles a new melee attack
+	 */
+	socket.on('sendMeleeAttack', meleeAttack => {
+		games[roomId].clientMeleeAttacks.push(meleeAttack)
 	})
 
 	/**
@@ -389,8 +408,6 @@ io.on('connection', (socket) => {
 	 * Handle Status Change function
 	 */
 	const handleStatusChange = (statusChange) => {
-		console.log(statusChange, 'status changing')
-
 		if(statusChange.player === 1) {
 			games[roomId].matchPlayerOne.status = statusChange.status
 			games[roomId].clientStatusChanges.shift()
@@ -414,6 +431,18 @@ io.on('connection', (socket) => {
 	/**
 	 * Handles Player Attacks
 	 */
+	const handleMeleePlayerAttack = ( meleeAttack ) => {
+
+
+
+		findMeleeTiles(meleeAttack.player).then(() => {
+			console.log('assigning melee tiles', games[roomId].matchPlayerOne.meleeAttackTiles)
+			assignMeleeTiles(meleeAttack.player).then(() => {
+				meleeAttackCoolDown(meleeAttack.player)
+			});
+		})
+	}
+
 	const handleHorizontalPlayerAttack = ( playerAttack ) => {
 
 		let playerIndex = playerAttack.player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
@@ -484,7 +513,7 @@ io.on('connection', (socket) => {
 				if(games[roomId].matchBoardGrid[subtractTileIndex === 10] || games[roomId].matchBoardGrid[subtractTileIndex] === 11){
 					games[roomId][matchPlayer].tempTiles.push(0)
 				} else if ((games[roomId].matchBoardGrid[subtractTileIndex] === 1 && enemy === true) || (games[roomId].matchBoardGrid[subtractTileIndex] === 100 && enemy === false)) {
-					handleLivesAmount(enemy)
+					handleLivesAmountRegular(enemy)
 					continue;
 				} else {
 					games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[subtractTileIndex])
@@ -500,7 +529,7 @@ io.on('connection', (socket) => {
 				if(games[roomId].matchBoardGrid[addTileIndex] === 10 || games[roomId].matchBoardGrid[addTileIndex] === 11){
 					games[roomId][matchPlayer].tempTiles.push(0)
 				} else if ((games[roomId].matchBoardGrid[addTileIndex] === 1 && enemy === true) || (games[roomId].matchBoardGrid[addTileIndex] === 100 && enemy === false)) {
-					handleLivesAmount(enemy)
+					handleLivesAmountRegular(enemy)
 					continue;
 				} else {
 					games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[addTileIndex])
@@ -521,7 +550,7 @@ io.on('connection', (socket) => {
 				games[roomId][matchPlayer].tempTiles.push(0)
 				games[roomId][matchPlayer].attackTiles.push(numDownward);
 			} else if (games[roomId].matchBoardGrid[numDownward] === 1 || games[roomId].matchBoardGrid[numDownward] === 100) {
-				handleLivesAmount(enemy)
+				handleLivesAmountRegular(enemy)
 			} else {
 				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numDownward])
 				games[roomId][matchPlayer].attackTiles.push(numDownward);
@@ -534,7 +563,7 @@ io.on('connection', (socket) => {
 				games[roomId][matchPlayer].tempTiles.push(0)
 				games[roomId][matchPlayer].attackTiles.push(numUpward)
 			} else if (games[roomId].matchBoardGrid[numUpward] === 1 || games[roomId].matchBoardGrid[numUpward] === 100) {
-				handleLivesAmount(enemy)
+				handleLivesAmountRegular(enemy)
 			} else {
 				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numUpward])
 				games[roomId][matchPlayer].attackTiles.push(numUpward)
@@ -550,7 +579,7 @@ io.on('connection', (socket) => {
 			if(games[roomId].matchBoardGrid[numDownward] === 10 || games[roomId].matchBoardGrid[numDownward] === 11){
 				games[roomId][matchPlayer].tempTiles.push(0)
 			} else if (games[roomId].matchBoardGrid[numDownward] === 1 || games[roomId].matchBoardGrid[numDownward] === 100) {
-				handleLivesAmount(enemy)
+				handleLivesAmountRegular(enemy)
 				continue;
 			} else {
 				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numDownward])
@@ -567,7 +596,7 @@ io.on('connection', (socket) => {
 			if(games[roomId].matchBoardGrid[numUpward] === 10 || games[roomId].matchBoardGrid[numUpward] === 11){
 				games[roomId][matchPlayer].tempTiles.push(0)
 			} else if (games[roomId].matchBoardGrid[numUpward] === 1 || games[roomId].matchBoardGrid[numUpward] === 100) {
-				handleLivesAmount(enemy)
+				handleLivesAmountRegular(enemy)
 				continue;
 			} else {
 				games[roomId][matchPlayer].tempTiles.push(games[roomId].matchBoardGrid[numUpward])
@@ -577,11 +606,146 @@ io.on('connection', (socket) => {
 		}
 	}
 
+	//warning: ugly code ahead, enter if ye dare
+	async function findMeleeTiles(player) {
+		let playerIndex = player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
+		let currentPlayer  = player === 1 ? 'matchPlayerOne' : 'matchPlayerTwo'
+
+		let right = games[roomId].matchBoardGrid[playerIndex + 1]
+		let left = games[roomId].matchBoardGrid[playerIndex - 1]
+		let up = games[roomId].matchBoardGrid[playerIndex + 10]
+		let down = games[roomId].matchBoardGrid[playerIndex - 10]
+		let downLeft = games[roomId].matchBoardGrid[playerIndex - 10 - 1]
+		let downRight = games[roomId].matchBoardGrid[playerIndex - 10 + 1]
+		let upRight  = games[roomId].matchBoardGrid[playerIndex + 10 + 1]
+		let upLeft  = games[roomId].matchBoardGrid[playerIndex + 10 - 1]
+
+		if(right === 25) {
+			console.log('there is a wall here')
+		} else if ((playerIndex + 1)%10 === 0) {
+			console.log('this is off the grid!')
+		} else if (right === 1 || right === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 1)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(left === 25) {
+			console.log('there is a wall here')
+		} else if ((playerIndex + 1)%10 === 1) {
+			console.log('this is off the grid!')
+		} else if (left === 1 || left === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 1)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(up === 25) {
+			console.log('there is a wall here')
+		} else if ((playerIndex + 10) < 0 || (playerIndex + 10) > 99 ) {
+			console.log('this is off the grid!')
+		} else if (up === 1 || up === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(down === 25){
+			console.log('there is a wall here')
+		} else if ((playerIndex - 10) < 0 || (playerIndex - 10) > 99 ) {
+			console.log('this is off the grid!')
+		} else if (down === 1 || down === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(downRight === 25) {
+			console.log('there is a wall here')
+		} else if ((playerIndex - 10 + 1) < 0 || (playerIndex - 10 + 1) > 99 ) {
+			console.log('this is off the grid!')
+		} else if ((playerIndex + 1)%10 === 0) {
+			console.log('this is off the grid!')
+		} else if (downRight === 1 || downRight === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10 + 1)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(downLeft === 25) {
+			console.log('there is a wall here')
+		} else if ((playerIndex - 10 - 1) < 0 || (playerIndex - 10 - 1) > 99 ) {
+			console.log('this is off the grid!')
+		} else if ((playerIndex + 1)%10 === 1) {
+			console.log('this is off the grid!')
+		} else if (downLeft === 1 || downLeft === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10 - 1)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(upLeft === 25) {
+			console.log('there is a wall here')
+		} else if ((playerIndex + 10 - 1) < 0 || (playerIndex + 10 - 1) > 99 ) {
+			console.log('this is off the grid!')
+		} else if ((playerIndex + 1)%10 === 1) {
+			console.log('this is off the grid!')
+		} else if (upLeft === 1 || upLeft === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10 - 1)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+
+		if(upRight === 25){
+			console.log('there is a wall here')
+		} else if ((playerIndex + 10 + 1) < 0 || (playerIndex + 10 + 1) > 99 ) {
+			console.log('this is off the grid!')
+		} else if ((playerIndex + 1)%10 === 0) {
+			console.log('this is off the grid!')
+		} else if (upRight === 1 || upRight === 100) {
+			handleLivesAmount(player, 15)
+		} else {
+			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10 + 1)
+			games[roomId][currentPlayer].meleeTempTiles.push(0)
+		}
+	}
+
 	async function assignAttackTiles(direction, enemy) {
 		let matchPlayer = enemy ? 'matchPlayerTwo' : 'matchPlayerOne'
 
 		games[roomId][matchPlayer].attackTiles.forEach((attackTile,index) =>{
 			games[roomId].matchBoardGrid[attackTile] = direction === 'horizontal' ? 10 : 11
+		})
+	}
+
+	async function assignMeleeTiles(player) {
+		let currentPlayer  = player === 1 ? 'matchPlayerOne' : 'matchPlayerTwo'
+
+		games[roomId][currentPlayer].meleeAttackTiles.forEach((meleeTile,index) =>{
+			games[roomId].matchBoardGrid[meleeTile] = 12
+		})
+	}
+
+	async function resetMeleeTiles(player) {
+		let currentPlayer = player === 1 ? 'matchPlayerOne' : 'matchPlayerTwo'
+
+		console.log('resetting melee attack', games[roomId][currentPlayer].meleeTempTiles)
+
+		games[roomId][currentPlayer].meleeAttackTiles.forEach((value, index) => {
+			if(games[roomId].matchBoardGrid[value] === 10){
+				games[roomId].matchBoardGrid[value] = 10;
+			} else if ( games[roomId].matchBoardGrid[value] === 11){
+				games[roomId].matchBoardGrid[value] = 11;
+			} else {
+				games[roomId].matchBoardGrid[value] = games[roomId][currentPlayer].meleeTempTiles[index]
+			}
 		})
 	}
 
@@ -619,11 +783,56 @@ io.on('connection', (socket) => {
 		}, 250)
 	}
 
+	const meleeAttackCoolDown = (player) => {
+		games[roomId].clientMeleeAttacks.shift()
+
+		console.log(player, 'we are cooling down', process.uptime(), games[roomId].clientMeleeAttacks, games[roomId].matchPlayerOne.meleeTempTiles)
+
+		setTimeout(() => {
+			resetMeleeTiles(player).then(() => {
+				let matchPlayer = player === 1 ? 'matchPlayerOne' : 'matchPlayerTwo'
+
+				games[roomId][matchPlayer].meleeTempTiles = [];
+				games[roomId][matchPlayer].meleeAttackTiles = [];
+			})
+		}, 500)
+
+		setTimeout(() => {
+			console.log(games[roomId].matchPlayerOne.status)
+
+			if(player === 1){
+				console.log(games[roomId].matchPlayerOne.status)
+				if(games[roomId].matchPlayerOne.status === 'charging'){
+					console.log('this is happening')
+					return games[roomId].matchPlayerOne.status = 'charging'
+				} else {
+					console.log('this is also happening wtf')
+					return games[roomId].matchPlayerOne.status = 'normal'
+				}
+			} else if (player === 100){
+				if(games[roomId].matchPlayerTwo.status === 'charging'){
+					return games[roomId].matchPlayerTwo.status = 'charging'
+				} else {
+					return games[roomId].matchPlayerTwo.status = 'normal'
+				}
+			}
+
+			games[roomId].clientMeleeAttacks.shift()
+			//player attack ends here
+			console.log('player melee attack ended', games[roomId].clientMeleeAttacks)
+		}, 500)
+	}
+
 	/**
 	 * Handles player lives
 	 */
-	const handleLivesAmount = (enemy, livesAmountString) => {
+	const handleLivesAmount = (player, lifeAmount) => {
+		let characterTakingDamage = player === 1 ? 'matchPlayerTwo' : 'matchPlayerOne'
 
+		games[roomId][characterTakingDamage].lives = games[roomId][characterTakingDamage].lives - lifeAmount
+	}
+
+	const handleLivesAmountRegular = (player) => {
 	}
 
 	/**
@@ -746,6 +955,8 @@ io.on('connection', (socket) => {
 						status: 'normal',
 						attackTiles: [],
 						tempTiles: [],
+						meleeAttackTiles: [],
+						meleeTempTiles: [],
 						lives: 50,
 						buttonPressed: 'down',
 					},
@@ -757,6 +968,8 @@ io.on('connection', (socket) => {
 						status: 'normal',
 						attackTiles: [],
 						tempTiles: [],
+						meleeAttackTiles: [],
+						meleeTempTiles: [],
 						lives: 50,
 						buttonPressed: 'up',
 					},
@@ -781,6 +994,7 @@ io.on('connection', (socket) => {
 					clientInputs: [],
 					clientStatusChanges: [],
 					clientPlayerAttacks: [],
+					clientMeleeAttacks: [],
 				}
 
 				/**
@@ -810,6 +1024,7 @@ io.on('connection', (socket) => {
 					playerOne: games[roomId].matchPlayerOne,
 					playerTwo: games[roomId].matchPlayerTwo,
 				})
+
 				io.to(roomId).emit('giveRestartGame')
 			}, 1000/15)
 
@@ -824,343 +1039,6 @@ io.on('connection', (socket) => {
 
 	console.log(' a user connected ! ')
 })
-
-// io.on('connection', (socket) => {
-// 	let query = socket.handshake.query;
-// 	let roomId = query.roomId;
-//
-// 	socket.join(roomId)
-//
-// 	if(!games[roomId]) {
-// 		console.log('room not in game')
-//
-// 		games[roomId] = {
-// 			matchUserNames: [],
-// 			matchIDs: [],
-// 			matchPlayerOne: {
-// 				id: '',
-// 				username: '',
-// 				index: 0,
-// 				state: 1,
-// 				status: 'normal',
-// 				attackTiles: [],
-// 				tempTiles: [],
-// 				lives: 50,
-// 			},
-// 			matchPlayerTwo: {
-// 				id: '',
-// 				username: '',
-// 				index: 99,
-// 				state: 100,
-// 				status: 'normal',
-// 				attackTiles: [],
-// 				tempTiles: [],
-// 				lives: 50,
-// 			},
-// 			matchBoardGrid: [
-// 				0,0,0,0,0,0,0,0,0,0,
-// 				0,0,25,0,0,0,0,25,0,0,
-// 				0,25,0,0,0,0,0,0,25,0,
-// 				0,0,0,0,0,0,0,0,0,0,
-// 				0,0,0,0,0,0,0,0,0,0,
-// 				0,0,0,0,0,0,0,0,0,0,
-// 				0,0,0,0,0,0,0,0,0,0,
-// 				0,25,0,0,0,0,0,0,25,0,
-// 				0,0,25,0,0,0,0,25,0,0,
-// 				0,0,0,0,0,0,0,0,0,0,
-// 			],
-// 			matchRoomId: roomId,
-// 			matchCurrentNumberOfUsers: 0,
-// 			matchRematchCount: 0,
-// 		}
-// 	} else {
-// 		console.log('room is already in game')
-// 	}
-//
-//
-// 	games['key 1'] = 'bruh';
-//
-// 	console.log(roomId, query)
-//
-// 	/**
-// 	 * Emit to the socket so that the user gets the users and userIDs when the join the lobby
-// 	 */
-// 	socket.emit('userJoined', {
-// 		users: games[roomId].matchUserNames,
-// 		userIDs: games[roomId].matchIDs,
-// 	})
-//
-// 	/**
-// 	 * Handles a new user joining
-// 	 */
-// 	socket.on('newUser', username => {
-// 		if(games[roomId].matchIDs.length === 2) return console.log('no more users can enter the match')
-//
-// 		games[roomId].matchCurrentNumberOfUsers++;
-//
-// 		console.log('new user called!', username.id, username.username, games[roomId].matchCurrentNumberOfUsers)
-//
-// 		socket.username = username.username;
-// 		socket.playerId = username.id;
-// 		games[roomId].matchUserNames.push(username.username)
-// 		games[roomId].matchIDs.push(username.id)
-//
-// 		console.log(games[roomId].matchUserNames, games[roomId].matchIDs)
-//
-// 		if( username.id === games[roomId].matchIDs[0] ) {
-// 			console.log('we are assigning the id and username')
-// 			games[roomId].matchPlayerOne.id = username.id
-// 			games[roomId].matchPlayerOne.username = username.username
-// 			console.log('we have assigned them', games[roomId].matchPlayerOne.username)
-// 		} else if ( username.id === games[roomId].matchIDs[1] ) {
-// 			games[roomId].matchPlayerTwo.id = username.id
-// 			games[roomId].matchPlayerTwo.username = username.username
-// 		}
-//
-// 		console.log('about to emit')
-//
-// 		io.to(roomId).emit('userOnline', {
-// 			users: games[roomId].matchUserNames,
-// 			userIDs: games[roomId].matchIDs,
-// 			boardState: games[roomId].matchBoardGrid,
-// 		})
-//
-// 		io.to(roomId).emit('giveUserInformation', {
-// 			playerOne: games[roomId].matchPlayerOne,
-// 			playerTwo: games[roomId].matchPlayerTwo,
-// 			boardState: games[roomId].matchBoardGrid,
-// 		})
-// 	})
-//
-// 	/**
-// 	 * Updates the player status
-// 	 */
-// 	socket.on('sendChangePlayerStatus', statusChange => {
-// 		if(statusChange.player === 1){
-// 			games[roomId].matchPlayerOne.status = statusChange.status;
-// 			games[roomId].matchPlayerOne.index = statusChange.index;
-// 			console.log(games[roomId].matchPlayerOne.status, 1)
-// 			io.to(roomId).emit('giveChangePlayerStatus', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 				boardState: games[roomId].matchBoardGrid,
-// 			})
-// 		} else if (statusChange.player === 100){
-// 			games[roomId].matchPlayerTwo.status = statusChange.status;
-// 			games[roomId].matchPlayerTwo.index = statusChange.index;
-// 			console.log(games[roomId].matchPlayerTwo.status, 100)
-// 			io.to(roomId).emit('giveChangePlayerStatus', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 				boardState: games[roomId].matchBoardGrid,
-// 			})
-// 		}
-// 	})
-//
-// 	/**
-// 	 * Updates the player index + board
-// 	 */
-// 	socket.on('sendUpdatePlayerIndex', indexChange => {
-// 		if(indexChange.player === 1){
-// 			console.log(games[roomId].matchPlayerOne.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player one')
-// 			games[roomId].matchPlayerOne.index = indexChange.index;
-// 			games[roomId].matchBoardGrid[indexChange.index] = indexChange.player;
-// 			games[roomId].matchBoardGrid[indexChange.oldIndex] = indexChange.oldValue;
-//
-// 			io.to(roomId).emit('giveUserInformation', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 				boardState: games[roomId].matchBoardGrid,
-// 			})
-// 		} else if (indexChange.player === 100){
-// 			console.log(games[roomId].matchPlayerTwo.index, indexChange.index, indexChange.oldIndex, indexChange.oldValue, 'player two')
-// 			games[roomId].matchPlayerTwo.index = indexChange.index;
-// 			games[roomId].matchBoardGrid[indexChange.index] = indexChange.player;
-// 			games[roomId].matchBoardGrid[indexChange.oldIndex] = indexChange.oldValue;
-//
-// 			io.to(roomId).emit('giveUserInformation', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 				boardState: games[roomId].matchBoardGrid,
-// 			})
-// 		}
-// 	})
-//
-// 	/**
-// 	 * Handles the player attacks
-// 	 */
-// 	socket.on('sendPlayerAttack', attack => {
-// 		console.log(attack.boardState, attack.player)
-//
-// 		if(attack.player === 1) {
-// 			games[roomId].matchBoardGrid = attack.boardState
-// 			io.to(roomId).emit('givePlayerAttack', {
-// 				boardState: games[roomId].matchBoardGrid
-// 			})
-// 		} else if (attack.player === 100) {
-// 			games[roomId].matchBoardGrid = attack.boardState
-// 			io.to(roomId).emit('givePlayerAttack', {
-// 				boardState: games[roomId].matchBoardGrid
-// 			})
-// 		}
-// 	})
-//
-// 	/**
-// 	 * Handles the player Lives
-// 	 */
-// 	socket.on('sendPlayerLives', lives => {
-// 		console.log(lives.player, lives.lives, 'changing the player lives')
-//
-// 		if(lives.player === 1) {
-// 			games[roomId].matchPlayerOne.lives = lives.lives
-// 			io.to(roomId).emit('givePlayerHealth', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 			})
-// 		} else if (lives.player === 100) {
-// 			games[roomId].matchPlayerTwo.lives = lives.lives
-// 			io.to(roomId).emit('givePlayerHealth', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 			})
-// 		}
-// 	})
-//
-// 	/**
-// 	 * Handles when a socket disconnects
-// 	 */
-// 	socket.on('disconnectFromRoom', player => {
-// 		console.log(player)
-//
-// 		if(player === 1){
-// 			console.log(games[roomId].matchIDs.length)
-// 			if(games[roomId].matchIDs.length === 1){
-// 				delete games[roomId]
-// 				console.log(games);
-// 			} else {
-// 				games[roomId].matchUserNames.shift();
-// 				games[roomId].matchIDs.shift();
-// 				games[roomId].matchPlayerOne = {
-// 					id: '',
-// 					username: '',
-// 					index: 0,
-// 					state: 1,
-// 					status: 'normal',
-// 					attackTiles: [],
-// 					tempTiles: [],
-// 					lives: 50,
-// 				}
-//
-// 				io.to(roomId).emit('giveUserInformation', {
-// 					playerOne: games[roomId].matchPlayerOne,
-// 					playerTwo: games[roomId].matchPlayerTwo,
-// 					boardState: games[roomId].matchBoardGrid,
-// 				})
-// 			}
-//
-// 		} else if (player === 100) {
-//
-// 			if(games[roomId].matchIDs.length === 1){
-// 				delete games[roomId]
-// 				console.log(games);
-// 			} else {
-// 				games[roomId].matchUserNames.pop();
-// 				games[roomId].matchIDs.pop();
-// 				games[roomId].matchPlayerTwo = {
-// 					id: '',
-// 					username: '',
-// 					index: 99,
-// 					state: 100,
-// 					status: 'normal',
-// 					attackTiles: [],
-// 					tempTiles: [],
-// 					lives: 50,
-// 				}
-//
-// 				io.to(roomId).emit('giveUserInformation', {
-// 					playerOne: games[roomId].matchPlayerOne,
-// 					playerTwo: games[roomId].matchPlayerTwo,
-// 					boardState: games[roomId].matchBoardGrid,
-// 				})
-// 			}
-//
-// 		}
-// 	})
-//
-// 	socket.on('disconnect', () => {
-// 		console.log('the user has disconnected', roomId)
-// 		if(!games[roomId]) return console.log('there is no room of that id')
-// 		if(games[roomId].matchCurrentNumberOfUsers === 1){
-// 			console.log('we are about to delete the room')
-// 			delete games[roomId]
-// 			console.log(games)
-// 		} else {
-// 			games[roomId].matchCurrentNumberOfUsers--;
-// 			console.log(games[roomId].matchCurrentNumberOfUsers)
-// 		}
-// 	})
-//
-// 	socket.on('sendAddToRematch', rematch => {
-// 		if(games[roomId].matchRematchCount === 1){
-// 			games[roomId] = {
-// 				matchUserNames: [],
-// 				matchIDs: [],
-// 				matchPlayerOne: {
-// 					id: '',
-// 					username: '',
-// 					index: 0,
-// 					state: 1,
-// 					status: 'normal',
-// 					attackTiles: [],
-// 					tempTiles: [],
-// 					lives: 50,
-// 				},
-// 				matchPlayerTwo: {
-// 					id: '',
-// 					username: '',
-// 					index: 99,
-// 					state: 100,
-// 					status: 'normal',
-// 					attackTiles: [],
-// 					tempTiles: [],
-// 					lives: 50,
-// 				},
-// 				matchBoardGrid: [
-// 					0,0,0,0,0,0,0,0,0,0,
-// 					0,0,25,0,0,0,0,25,0,0,
-// 					0,25,0,0,0,0,0,0,25,0,
-// 					0,0,0,0,0,0,0,0,0,0,
-// 					0,0,0,0,0,0,0,0,0,0,
-// 					0,0,0,0,0,0,0,0,0,0,
-// 					0,0,0,0,0,0,0,0,0,0,
-// 					0,25,0,0,0,0,0,0,25,0,
-// 					0,0,25,0,0,0,0,25,0,0,
-// 					0,0,0,0,0,0,0,0,0,0,
-// 				],
-// 				matchRoomId: roomId,
-// 				matchCurrentNumberOfUsers: 0,
-// 				matchRematchCount: 0,
-// 			}
-// 			io.to(roomId).emit('giveUserInformation', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 				boardState: games[roomId].matchBoardGrid,
-// 			})
-// 			io.to(roomId).emit('givePlayerHealth', {
-// 				playerOne: games[roomId].matchPlayerOne,
-// 				playerTwo: games[roomId].matchPlayerTwo,
-// 			})
-// 			io.to(roomId).emit('giveRestartGame')
-// 		} else {
-// 			games[roomId].matchRematchCount++;
-// 			io.to(roomId).emit('givePlayerRematchCount', {
-// 				rematchCount: games[roomId].matchRematchCount,
-// 			})
-// 		}
-// 	})
-//
-// 	console.log(' a user connected ! ')
-// })
 
 server.listen(PORT, () => {
 	console.log('listening on *:4000')
