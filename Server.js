@@ -30,11 +30,53 @@ const swapLookUpTable = {
 	'leftWall': -9,
 }
 
+let maps = {
+	'classic': [
+		1,0,0,0,0,0,0,0,0,0,
+		0,0,25,0,0,0,0,25,0,0,
+		0,25,0,0,0,0,0,0,25,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,25,0,0,0,0,0,0,25,0,
+		0,0,25,0,0,0,0,25,0,0,
+		0,0,0,0,0,0,0,0,0,100,
+	],
+	'contained': [
+		1,0,25,25,25,25,25,25,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		25,0,0,0,0,0,0,0,0,25,
+		25,0,0,0,0,0,0,0,0,25,
+		25,0,0,0,0,0,0,0,0,25,
+		25,0,0,0,0,0,0,0,0,25,
+		25,0,0,0,0,0,0,0,0,25,
+		25,0,0,0,0,0,0,0,0,25,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,25,25,25,25,25,25,0,100,
+	],
+	'big dot': [
+		1,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,25,25,25,25,0,0,0,
+		0,0,0,25,25,25,25,0,0,0,
+		0,0,0,25,25,25,25,0,0,0,
+		0,0,0,25,25,25,25,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,0,100,
+	]
+}
+
 io.on('connection', (socket) => {
 	let query = socket.handshake.query;
 	let roomId = query.roomId;
+	let map = query.mapId;
 
 	socket.join(roomId)
+
+	console.log(map, query.mapId)
 
 	if(Object.keys(games).length === 0) {
 		games.tick = true;
@@ -140,18 +182,7 @@ io.on('connection', (socket) => {
 				lives: 50,
 				buttonPressed: 'up',
 			},
-			matchBoardGrid: [
-				1,0,0,0,0,0,0,0,0,0,
-				0,0,25,0,0,0,0,25,0,0,
-				0,25,0,0,0,0,0,0,25,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,0,0,0,0,0,0,0,0,0,
-				0,25,0,0,0,0,0,0,25,0,
-				0,0,25,0,0,0,0,25,0,0,
-				0,0,0,0,0,0,0,0,0,100,
-			],
+			matchBoardGrid: maps[map],
 			matchRoomId: roomId,
 			matchCurrentNumberOfUsers: 0,
 			matchRematchCount: 0,
@@ -435,7 +466,7 @@ io.on('connection', (socket) => {
 
 
 
-		findMeleeTiles(meleeAttack.player).then(() => {
+		findMeleeTiles(meleeAttack.player, meleeAttack.type).then(() => {
 			console.log('assigning melee tiles', games[roomId].matchPlayerOne.meleeAttackTiles)
 			assignMeleeTiles(meleeAttack.player).then(() => {
 				meleeAttackCoolDown(meleeAttack.player)
@@ -607,7 +638,7 @@ io.on('connection', (socket) => {
 	}
 
 	//warning: ugly code ahead, enter if ye dare
-	async function findMeleeTiles(player) {
+	async function findMeleeTiles(player, type) {
 		let playerIndex = player === 1 ? games[roomId].matchPlayerOne.index : games[roomId].matchPlayerTwo.index
 		let currentPlayer  = player === 1 ? 'matchPlayerOne' : 'matchPlayerTwo'
 
@@ -620,100 +651,108 @@ io.on('connection', (socket) => {
 		let upRight  = games[roomId].matchBoardGrid[playerIndex + 10 + 1]
 		let upLeft  = games[roomId].matchBoardGrid[playerIndex + 10 - 1]
 
-		if(right === 25) {
-			console.log('there is a wall here')
-		} else if ((playerIndex + 1)%10 === 0) {
-			console.log('this is off the grid!')
-		} else if (right === 1 || right === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 1)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+		let damage = 10
 
-		if(left === 25) {
-			console.log('there is a wall here')
-		} else if ((playerIndex + 1)%10 === 1) {
-			console.log('this is off the grid!')
-		} else if (left === 1 || left === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 1)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+		if(type === 'cross') {
 
-		if(up === 25) {
-			console.log('there is a wall here')
-		} else if ((playerIndex + 10) < 0 || (playerIndex + 10) > 99 ) {
-			console.log('this is off the grid!')
-		} else if (up === 1 || up === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+			if(right === 25) {
+				console.log('there is a wall here')
+			} else if ((playerIndex + 1)%10 === 0) {
+				console.log('this is off the grid!')
+			} else if (right === 1 || right === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 1)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
 
-		if(down === 25){
-			console.log('there is a wall here')
-		} else if ((playerIndex - 10) < 0 || (playerIndex - 10) > 99 ) {
-			console.log('this is off the grid!')
-		} else if (down === 1 || down === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+			if(left === 25) {
+				console.log('there is a wall here')
+			} else if ((playerIndex + 1)%10 === 1) {
+				console.log('this is off the grid!')
+			} else if (left === 1 || left === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 1)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
 
-		if(downRight === 25) {
-			console.log('there is a wall here')
-		} else if ((playerIndex - 10 + 1) < 0 || (playerIndex - 10 + 1) > 99 ) {
-			console.log('this is off the grid!')
-		} else if ((playerIndex + 1)%10 === 0) {
-			console.log('this is off the grid!')
-		} else if (downRight === 1 || downRight === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10 + 1)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+			if(up === 25) {
+				console.log('there is a wall here')
+			} else if ((playerIndex + 10) < 0 || (playerIndex + 10) > 99 ) {
+				console.log('this is off the grid!')
+			} else if (up === 1 || up === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
 
-		if(downLeft === 25) {
-			console.log('there is a wall here')
-		} else if ((playerIndex - 10 - 1) < 0 || (playerIndex - 10 - 1) > 99 ) {
-			console.log('this is off the grid!')
-		} else if ((playerIndex + 1)%10 === 1) {
-			console.log('this is off the grid!')
-		} else if (downLeft === 1 || downLeft === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10 - 1)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+			if(down === 25){
+				console.log('there is a wall here')
+			} else if ((playerIndex - 10) < 0 || (playerIndex - 10) > 99 ) {
+				console.log('this is off the grid!')
+			} else if (down === 1 || down === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
 
-		if(upLeft === 25) {
-			console.log('there is a wall here')
-		} else if ((playerIndex + 10 - 1) < 0 || (playerIndex + 10 - 1) > 99 ) {
-			console.log('this is off the grid!')
-		} else if ((playerIndex + 1)%10 === 1) {
-			console.log('this is off the grid!')
-		} else if (upLeft === 1 || upLeft === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10 - 1)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
-		}
+		} else if (type === 'x') {
 
-		if(upRight === 25){
-			console.log('there is a wall here')
-		} else if ((playerIndex + 10 + 1) < 0 || (playerIndex + 10 + 1) > 99 ) {
-			console.log('this is off the grid!')
-		} else if ((playerIndex + 1)%10 === 0) {
-			console.log('this is off the grid!')
-		} else if (upRight === 1 || upRight === 100) {
-			handleLivesAmount(player, 15)
-		} else {
-			games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10 + 1)
-			games[roomId][currentPlayer].meleeTempTiles.push(0)
+			if(downRight === 25) {
+				console.log('there is a wall here')
+			} else if ((playerIndex - 10 + 1) < 0 || (playerIndex - 10 + 1) > 99 ) {
+				console.log('this is off the grid!')
+			} else if ((playerIndex + 1)%10 === 0) {
+				console.log('this is off the grid!')
+			} else if (downRight === 1 || downRight === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10 + 1)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
+
+			if(downLeft === 25) {
+				console.log('there is a wall here')
+			} else if ((playerIndex - 10 - 1) < 0 || (playerIndex - 10 - 1) > 99 ) {
+				console.log('this is off the grid!')
+			} else if ((playerIndex + 1)%10 === 1) {
+				console.log('this is off the grid!')
+			} else if (downLeft === 1 || downLeft === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex - 10 - 1)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
+
+			if(upLeft === 25) {
+				console.log('there is a wall here')
+			} else if ((playerIndex + 10 - 1) < 0 || (playerIndex + 10 - 1) > 99 ) {
+				console.log('this is off the grid!')
+			} else if ((playerIndex + 1)%10 === 1) {
+				console.log('this is off the grid!')
+			} else if (upLeft === 1 || upLeft === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10 - 1)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
+
+			if(upRight === 25){
+				console.log('there is a wall here')
+			} else if ((playerIndex + 10 + 1) < 0 || (playerIndex + 10 + 1) > 99 ) {
+				console.log('this is off the grid!')
+			} else if ((playerIndex + 1)%10 === 0) {
+				console.log('this is off the grid!')
+			} else if (upRight === 1 || upRight === 100) {
+				handleLivesAmount(player, damage)
+			} else {
+				games[roomId][currentPlayer].meleeAttackTiles.push(playerIndex + 10 + 1)
+				games[roomId][currentPlayer].meleeTempTiles.push(0)
+			}
+
 		}
 	}
 
@@ -973,18 +1012,7 @@ io.on('connection', (socket) => {
 						lives: 50,
 						buttonPressed: 'up',
 					},
-					matchBoardGrid: [
-						1,0,0,0,0,0,0,0,0,0,
-						0,0,25,0,0,0,0,25,0,0,
-						0,25,0,0,0,0,0,0,25,0,
-						0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,
-						0,0,0,0,0,0,0,0,0,0,
-						0,25,0,0,0,0,0,0,25,0,
-						0,0,25,0,0,0,0,25,0,0,
-						0,0,0,0,0,0,0,0,0,100,
-					],
+					matchBoardGrid: maps[map],
 					matchRoomId: roomId,
 					matchCurrentNumberOfUsers: 2,
 					matchRematchCount: 0,
