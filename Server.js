@@ -1056,7 +1056,7 @@ io.on('connection', (socket) => {
 				io.to(roomId).emit('giveRestartGame')
 			}, 1000/15)
 
-			console.log('sending to restart game!')
+			console.log('sending to restart game!', games[roomId].matchBoardGrid)
 		} else {
 			games[roomId].matchRematchCount++;
 			io.to(roomId).emit('givePlayerRematchCount', {
