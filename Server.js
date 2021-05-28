@@ -153,6 +153,9 @@ io.on('connection', (socket) => {
 	if(!games[roomId]) {
 		console.log('room not in game')
 
+		//use spread operator to make a copy of the map, so we don't mutate the reference maps so other games can use them
+		let boardCopy = [...maps[map]];
+
 		games[roomId] = {
 			matchUserNames: [],
 			matchIDs: [],
@@ -182,7 +185,7 @@ io.on('connection', (socket) => {
 				lives: 50,
 				buttonPressed: 'up',
 			},
-			matchBoardGrid: maps[map],
+			matchBoardGrid: boardCopy,
 			matchRoomId: roomId,
 			matchCurrentNumberOfUsers: 0,
 			matchRematchCount: 0,
@@ -212,6 +215,7 @@ io.on('connection', (socket) => {
 		}, 1000 / 30)
 
 
+		console.log(games[roomId].matchBoardGrid, boardCopy, map)
 	} else {
 		console.log('room is already in game')
 	}
@@ -294,13 +298,13 @@ io.on('connection', (socket) => {
 		let playerState = playerInput.player === 1 ? games[roomId].matchPlayerOne.state : games[roomId].matchPlayerTwo.state
 
 		if((playerIndex + 1)%10 === 0){
-			if(games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 25) return console.log('you are hitting a wall bro')
-			if(games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 1 || games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 100) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 25) return games[roomId].clientInputs.shift();
+			if(games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 1 || games[roomId].matchBoardGrid[playerIndex - (10 - 1)] === 100) return games[roomId].clientInputs.shift();
 
 			swap(playerIndex - (10 - 1), playerIndex - (10 - 1), 'rightWall', playerState)
 		} else {
-			if(games[roomId].matchBoardGrid[playerIndex + 1] === 25) return console.log('you are hitting a wall bro')
-			if(games[roomId].matchBoardGrid[playerIndex + 1] === 1 || games[roomId].matchBoardGrid[playerIndex + 1] === 100) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex + 1] === 25) return games[roomId].clientInputs.shift();
+			if(games[roomId].matchBoardGrid[playerIndex + 1] === 1 || games[roomId].matchBoardGrid[playerIndex + 1] === 100) return games[roomId].clientInputs.shift();
 
 			swap(playerIndex + 1, playerIndex + 1, playerInput.input, playerState)
 		}
@@ -311,13 +315,13 @@ io.on('connection', (socket) => {
 		let playerState = playerInput.player === 1 ? games[roomId].matchPlayerOne.state : games[roomId].matchPlayerTwo.state
 
 		if((playerIndex + 1)%10 === 1){
-			if(games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 25) return console.log('you are hitting a wall bro')
-			if(games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 1 || games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 100) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 25) return games[roomId].clientInputs.shift();
+			if(games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 1 || games[roomId].matchBoardGrid[playerIndex + (10 - 1)] === 100) return games[roomId].clientInputs.shift();
 
 			swap(playerIndex + (10 - 1), playerIndex + (10 - 1), 'leftWall', playerState)
 		} else {
-			if(games[roomId].matchBoardGrid[playerIndex - 1] === 25) return console.log('you are hitting a wall bro')
-			if(games[roomId].matchBoardGrid[playerIndex - 1] === 1 || games[roomId].matchBoardGrid[playerIndex - 1] === 100) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex - 1] === 25) return games[roomId].clientInputs.shift();
+			if(games[roomId].matchBoardGrid[playerIndex - 1] === 1 || games[roomId].matchBoardGrid[playerIndex - 1] === 100) return games[roomId].clientInputs.shift();
 
 			swap(playerIndex - 1, playerIndex - 1, playerInput.input, playerState)
 		}
@@ -336,10 +340,11 @@ io.on('connection', (socket) => {
 			let temp = games[roomId].matchBoardGrid[lastRowStart + playerIndex]
 
 			if(temp === 25) {
-				games[roomId].shift();
+				games[roomId].clientInputs.shift();
 				return console.log('there is a wall here')
 			}
 			if(temp === 100 || temp === 1){
+				games[roomId].clientInputs.shift();
 				return console.log('there is a player here')
 			}
 
@@ -364,8 +369,8 @@ io.on('connection', (socket) => {
 
 
 		} else {
-			if(games[roomId].matchBoardGrid[playerIndex - 10] === 25) return console.log('you are hitting a wall bro')
-			if(games[roomId].matchBoardGrid[playerIndex - 10] === 1 || games[roomId].matchBoardGrid[playerIndex + 10] === 100) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex - 10] === 25) return games[roomId].clientInputs.shift();
+			if(games[roomId].matchBoardGrid[playerIndex - 10] === 1 || games[roomId].matchBoardGrid[playerIndex + 10] === 100) return games[roomId].clientInputs.shift();
 
 			swap(playerIndex - 10, playerIndex - 10, playerInput.input, playerState)
 		}
@@ -384,10 +389,11 @@ io.on('connection', (socket) => {
 			playerIndex = difference;
 
 			if(temp === 25) {
-				games[roomId].shift();
+				games[roomId].clientInputs.shift();
 				return console.log('there is a wall here')
 			}
 			if(temp === 100 || temp === 1){
+				games[roomId].clientInputs.shift();
 				return console.log('there is a player here')
 			}
 
@@ -406,8 +412,8 @@ io.on('connection', (socket) => {
 
 			console.log('player has been swapped and input removed', games[roomId].matchBoardGrid, games[roomId].matchPlayerOne)
 		} else {
-			if(games[roomId].matchBoardGrid[playerIndex + 10] === 25) return console.log('you are hitting a wall bro')
-			if(games[roomId].matchBoardGrid[playerIndex + 10] === 1 || games[roomId].matchBoardGrid[playerIndex + 10] === 100) return console.log('you are hitting a wall bro')
+			if(games[roomId].matchBoardGrid[playerIndex + 10] === 25) return games[roomId].clientInputs.shift();
+			if(games[roomId].matchBoardGrid[playerIndex + 10] === 1 || games[roomId].matchBoardGrid[playerIndex + 10] === 100) return games[roomId].clientInputs.shift();
 
 			swap(playerIndex + 10, playerIndex + 10, playerInput.input, playerState)
 		}
@@ -432,7 +438,7 @@ io.on('connection', (socket) => {
 
 		games[roomId].clientInputs.shift();
 
-		console.log('player has been swapped and input removed')
+		console.log('player has been swapped and input removed', maps[map])
 	}
 
 	/**
@@ -463,8 +469,6 @@ io.on('connection', (socket) => {
 	 * Handles Player Attacks
 	 */
 	const handleMeleePlayerAttack = ( meleeAttack ) => {
-
-
 
 		findMeleeTiles(meleeAttack.player, meleeAttack.type).then(() => {
 			console.log('assigning melee tiles', games[roomId].matchPlayerOne.meleeAttackTiles)
@@ -983,6 +987,8 @@ io.on('connection', (socket) => {
 			games[roomId].tick = false
 
 			setTimeout(() => {
+				let boardCopy = [...maps[map]];
+
 				games[roomId] = {
 					matchUserNames: matchUserNames,
 					matchIDs: matchUserIDs,
@@ -1012,7 +1018,7 @@ io.on('connection', (socket) => {
 						lives: 50,
 						buttonPressed: 'up',
 					},
-					matchBoardGrid: maps[map],
+					matchBoardGrid: boardCopy,
 					matchRoomId: roomId,
 					matchCurrentNumberOfUsers: 2,
 					matchRematchCount: 0,
