@@ -20,8 +20,8 @@ let games = {}
 const PORT = process.env.PORT || 4000;
 const INDEX = '/index.html';
 
+app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
 app.use(cors);
-// app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
 
 
 app.get('/', (req,res) => {
@@ -1107,7 +1107,7 @@ io.on('connection', (socket) => {
 	console.log(' a user connected ! ')
 })
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0",() => {
 	console.log(`listening on *:${PORT} dude`)
 })
 
