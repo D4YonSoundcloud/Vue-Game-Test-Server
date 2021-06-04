@@ -13,8 +13,6 @@ const io = new Server(server, {
 
 let collectionName = 'Time-Trials'
 
-const URL = "mongodb+srv://d4y:HcqDRI3gntBJNNki@cluster0.xyki8.mongodb.net"
-
 let games = {}
 
 const PORT = process.env.PORT || 4000;
