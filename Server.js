@@ -1,3 +1,4 @@
+const { MongoClient } = require('mongodb');
 const express = require('express');
 const app = express();
 const cors = require('cors')
@@ -10,15 +11,47 @@ const io = new Server(server, {
 	}
 });
 
+let collectionName = 'Time-Trials'
+
+const URL = "mongodb+srv://d4y:HcqDRI3gntBJNNki@cluster0.xyki8.mongodb.net"
+
 let games = {}
 
 const PORT = process.env.PORT || 4000;
 const INDEX = '/index.html';
 
 app.use(cors);
-app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
-// app.get('/', (req,res) => {
-// 	res.send('<h1>This is where the data will be</h1>')
+// app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
+
+
+app.get('/', (req,res) => {
+	console.log('i am sending this')
+	res.send('<h1>This is where the data will be</h1>')
+})
+
+// app.get('/time-trial-times/:trial', (req, res) => {
+//
+// 	console.log('this request is being made!')
+//
+// 	let result = {'error': 'there are no times'}
+//
+// 	let timeTrialSelected = req.params.trial
+//
+// 	MongoClient.connect(URL, { useUnifiedTopology: true })
+// 		.then(connection => {
+// 			let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
+// 			let collection = database.collection(collectionName)
+//
+// 			let cursor = collection.find(timeTrialSelected)
+//
+// 			console.log(cursor);
+//
+// 			return res.json(cursor);
+// 		})
+// 		.catch(error => {
+// 			console.log('error: ' + error);
+// 		})
+//
 // })
 
 const swapLookUpTable = {
@@ -1075,6 +1108,6 @@ io.on('connection', (socket) => {
 })
 
 server.listen(PORT, () => {
-	console.log('listening on *:4000')
+	console.log(`listening on *:${PORT} dude`)
 })
 
