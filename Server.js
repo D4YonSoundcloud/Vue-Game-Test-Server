@@ -1,6 +1,7 @@
 const { MongoClient } = require('mongodb');
 const dotenv = require('dotenv');
 const express = require('express');
+const bodyParser = require('body-parser');
 const app = express();
 const cors = require('cors')
 const http = require('http');
@@ -15,6 +16,7 @@ const io = new Server(server, {
 dotenv.config();
 
 let collectionName = 'Time-Trials'
+let userCollectionName = 'Soundcloud-Stardum-Royale-2099-Users'
 
 let games = {}
 
@@ -24,9 +26,146 @@ const CONNECT_URL = `${process.env.DB_KEY}`
 
 console.log(CONNECT_URL)
 
+app.use(cors());
+app.use(bodyParser.json());
+
 app.get('/test', (req,res) => {
 	console.log('i am sending this')
 	res.send('<h1>This is where the data will be</h1>')
+})
+
+app.post('/login', async (req,res) => {
+	try{
+		console.log('request body (data)', req.body)
+		let userId = req.body.userId;
+		let userGoogleName = req.body.userGoogleName
+
+		console.log(userId, userGoogleName)
+
+		MongoClient.connect(CONNECT_URL, { useUnifiedTopology: true})
+			.then( async (connection) => {
+				try{
+					console.log('connected to the database!')
+
+					let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
+					let collection = database.collection(userCollectionName)
+
+					let userExist = await collection.findOne({userId: userId})
+
+					console.log(userExist);
+
+					if(userExist) {
+						console.log('this user already exist, so we gonna log them in')
+						res.status(200).send(userExist)
+						connection.close()
+						return console.log('the connection to the database has been closed')
+					}
+
+					console.log('we are registering the user')
+
+					const user = await collection.insertOne({
+						userId: userId,
+						userGoogleName: userGoogleName,
+						'time-trial-I': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-II': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-III': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-IV': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-V': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-VI': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-VII': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-VIII': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-IX': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-X': {
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						},
+						'time-trial-all':{
+							bestTime: 0,
+							times: [],
+							stepCounts: [],
+							wallHitCounts: [],
+							stepAccuracyCounts: [],
+						}
+					})
+
+					const myUser = await collection.findOne({
+						userId: userId,
+					})
+
+					console.log(myUser, 'this is from the database')
+
+					res.status(200).send('we have gotten the req, this is the response')
+
+					await connection.close();
+
+					console.log('the database connection has been closed')
+
+				} catch(err) {
+					console.log(err)
+				}
+			})
+	} catch (err) {
+		console.log(err)
+	}
+
+
 })
 
 app.get('/time-trial-times/:trial', (req, res) => {
@@ -66,7 +205,6 @@ app.get('/time-trial-times/:trial', (req, res) => {
 })
 
 app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
-app.use(cors);
 
 const swapLookUpTable = {
 	'left': 1,
