@@ -1,4 +1,5 @@
 const { MongoClient } = require('mongodb');
+const dotenv = require('dotenv');
 const express = require('express');
 const app = express();
 const cors = require('cors')
@@ -11,14 +12,17 @@ const io = new Server(server, {
 	}
 });
 
+dotenv.config();
+
 let collectionName = 'Time-Trials'
 
 let games = {}
 
 const PORT = process.env.PORT || 4000;
 const INDEX = '/index.html';
+const CONNECT_URL = `${process.env.MONGO_KEY}`
 
-
+console.log(CONNECT_URL)
 
 app.get('/test', (req,res) => {
 	console.log('i am sending this')
@@ -35,7 +39,7 @@ app.get('/time-trial-times/:trial', (req, res) => {
 
 	console.log(timeTrialSelected)
 
-	MongoClient.connect(URL, { useUnifiedTopology: true })
+	MongoClient.connect(CONNECT_URL, { useUnifiedTopology: true })
 		.then(connection => {
 			let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
 			let collection = database.collection(collectionName)
