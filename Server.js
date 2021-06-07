@@ -20,7 +20,7 @@ let games = {}
 
 const PORT = process.env.PORT || 4000;
 const INDEX = '/index.html';
-const CONNECT_URL = `${process.env.MONGO_KEY}`
+const CONNECT_URL = `${process.env.DB_KEY}`
 
 console.log(CONNECT_URL)
 
