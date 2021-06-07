@@ -18,39 +18,51 @@ let games = {}
 const PORT = process.env.PORT || 4000;
 const INDEX = '/index.html';
 
-app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
-app.use(cors);
 
 
-app.get('/', (req,res) => {
+app.get('/test', (req,res) => {
 	console.log('i am sending this')
 	res.send('<h1>This is where the data will be</h1>')
 })
 
-// app.get('/time-trial-times/:trial', (req, res) => {
-//
-// 	console.log('this request is being made!')
-//
-// 	let result = {'error': 'there are no times'}
-//
-// 	let timeTrialSelected = req.params.trial
-//
-// 	MongoClient.connect(URL, { useUnifiedTopology: true })
-// 		.then(connection => {
-// 			let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
-// 			let collection = database.collection(collectionName)
-//
-// 			let cursor = collection.find(timeTrialSelected)
-//
-// 			console.log(cursor);
-//
-// 			return res.json(cursor);
-// 		})
-// 		.catch(error => {
-// 			console.log('error: ' + error);
-// 		})
-//
-// })
+app.get('/time-trial-times/:trial', (req, res) => {
+
+	console.log('this request is being made!')
+
+	let result = {'error': 'there are no times'}
+
+	let timeTrialSelected = req.params.trial
+
+	console.log(timeTrialSelected)
+
+	MongoClient.connect(URL, { useUnifiedTopology: true })
+		.then(connection => {
+			let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
+			let collection = database.collection(collectionName)
+
+			let cursor = collection.find({levelName: timeTrialSelected})
+
+			let leaderBoard = []
+
+			cursor.forEach(document => {
+
+				leaderBoard = document.levelLeaderBoard
+
+				console.log(leaderBoard)
+			}, () => {
+				connection.close();
+				return res.json(leaderBoard);
+			})
+
+		})
+		.catch(error => {
+			console.log('error: ' + error);
+		})
+
+})
+
+app.use((req, res) => res.sendFile(INDEX, { root: __dirname }))
+app.use(cors);
 
 const swapLookUpTable = {
 	'left': 1,
@@ -1105,7 +1117,7 @@ io.on('connection', (socket) => {
 	console.log(' a user connected ! ')
 })
 
-server.listen(PORT, "0.0.0.0",() => {
-	console.log(`listening on *:${PORT} dude`)
+server.listen(PORT, () => {
+	console.log(`listening on http://localhost:${PORT}`)
 })
 
