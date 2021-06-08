@@ -56,8 +56,8 @@ app.post('/login', async (req,res) => {
 
 					if(userExist) {
 						console.log('this user already exist, so we gonna log them in')
-						res.status(200).send(userExist)
-						connection.close()
+						res.send(userExist)
+						await connection.close()
 						return console.log('the connection to the database has been closed')
 					}
 
@@ -67,81 +67,97 @@ app.post('/login', async (req,res) => {
 						userId: userId,
 						userGoogleName: userGoogleName,
 						'time-trial-I': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-I',
 						},
 						'time-trial-II': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-II',
 						},
 						'time-trial-III': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-III',
 						},
 						'time-trial-IV': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-IV',
 						},
 						'time-trial-V': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-V',
 						},
 						'time-trial-VI': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-VI',
 						},
 						'time-trial-VII': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-VII',
 						},
 						'time-trial-VIII': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-VIII',
 						},
 						'time-trial-IX': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-IX',
 						},
 						'time-trial-X': {
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-X',
 						},
 						'time-trial-all':{
-							bestTime: 0,
+							bestTime: undefined,
 							times: [],
 							stepCounts: [],
 							wallHitCounts: [],
 							stepAccuracyCounts: [],
+							trialName: 'time-trial-all',
+						},
+						pvpStats:{
+							wins: 0,
+							losses: 0,
+							experience: 0,
 						}
 					})
 
@@ -151,7 +167,7 @@ app.post('/login', async (req,res) => {
 
 					console.log(myUser, 'this is from the database')
 
-					res.status(200).send('we have gotten the req, this is the response')
+					res.send(myUser)
 
 					await connection.close();
 
@@ -175,13 +191,16 @@ app.put('/updateTime', async (req,res) => {
 		let timeTrial = req.body.timeTrial;
 		let timeTrialTime = req.body.timeTrialTime;
 		let date = req.body.timeDate;
+		let stepCount = req.body.stepCount
+		let wallHitCount = req.body.wallHitCount
+		let stepAccuracy = req.body.stepAccuracy.toFixed(2)
 
 		console.log('here is the update', userId, timeTrial, timeTrialTime, date)
 
 		MongoClient.connect(CONNECT_URL, { useUnifiedTopology: true})
 			.then( async (connection) => {
 				try{
-					console.log('connected to the database!')
+					console.log('connected to the database to update player Time!')
 
 					let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
 					let collection = database.collection(userCollectionName)
@@ -190,24 +209,121 @@ app.put('/updateTime', async (req,res) => {
 						time: timeTrialTime,
 						date: date,
 					}
+					let updateStepsObject = {
+						stepCount: stepCount,
+						date: date,
+					}
+					let updateWallHitsObject = {
+						wallHitCount: wallHitCount,
+						date: date,
+					}
+					let updateStepAccuracyObject = {
+						stepAccuracy: stepAccuracy,
+						date: date,
+					}
 
-					let timeArrayString = `"${timeTrial}.$.times"`;
-
-					console.log('this is the time array string', timeArrayString)
-
-					let userUpdate = await collection.findOneAndUpdate(
-						{ userId: userId },
-						{ $push: { [timeArrayString]:  updateObject }}
+					let userUpdateTime = await collection.findOneAndUpdate(
+						{ userId: userId},
+						{ $push: {
+							[`${timeTrial}.times`]:  updateObject,
+							[`${timeTrial}.stepCounts`]: updateStepsObject,
+							[`${timeTrial}.wallHitCounts`]: updateWallHitsObject,
+							[`${timeTrial}.stepAccuracyCounts`]: updateStepAccuracyObject
+							}
+						},
 					)
 
 					let user = await collection.findOne({userId: userId})
 
-					console.log('this is the user', user, 'we are updating the user')
+					console.log('this is the user', user['time-trial-I'], 'we are updating the user')
 
 
-					if(userUpdate) {
-						console.log('this user already exist, so we gonna log them in')
-						res.status(200).send(user)
+					if(userUpdateTime) {
+						console.log('about to send the updated user times')
+						res.send(user)
+						await connection.close()
+						return console.log('the connection to the database has been closed')
+					}
+
+				} catch(err) {
+					console.log(err)
+				}
+			})
+	} catch (err) {
+		console.log(err)
+	}
+})
+
+app.put('/updateBestTime', async (req,res) => {
+	try{
+		console.log('request body (data)', req.body)
+		let userId = req.body.userId;
+		let timeTrial = req.body.timeTrial;
+		let newBestTime = req.body.newBestTime;
+		let date = req.body.timeDate;
+		let stepCount = req.body.stepCount
+		let wallHitCount = req.body.wallHitCount
+		let stepAccuracy = req.body.stepAccuracy.toFixed(2)
+
+
+		console.log('here is the update', userId, timeTrial, newBestTime, date)
+
+		MongoClient.connect(CONNECT_URL, { useUnifiedTopology: true})
+			.then( async (connection) => {
+				try{
+					console.log('connected to the database to update player Time!')
+
+					let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
+					let collection = database.collection(userCollectionName)
+
+					let updateBestTimeObject = {
+						time: newBestTime,
+						date: date
+					}
+					let updateTimeObject = {
+						time: newBestTime,
+						date: date,
+					}
+					let updateStepsObject = {
+						stepCount: stepCount,
+						date: date,
+					}
+					let updateWallHitsObject = {
+						wallHitCount: wallHitCount,
+						date: date,
+					}
+					let updateStepAccuracyObject = {
+						stepAccuracy: stepAccuracy,
+						date: date,
+					}
+
+					let userUpdateTime = await collection.findOneAndUpdate(
+						{ userId: userId},
+						{ $set: {
+								[`${timeTrial}.bestTime`]:  updateBestTimeObject,
+							}
+						},
+					)
+
+					let userUpdateOthers = await collection.findOneAndUpdate(
+						{ userId: userId },
+						{ $push: {
+								[`${timeTrial}.times`]:  updateTimeObject,
+								[`${timeTrial}.stepCounts`]: updateStepsObject,
+								[`${timeTrial}.wallHitCounts`]: updateWallHitsObject,
+								[`${timeTrial}.stepAccuracyCounts`]: updateStepAccuracyObject
+							}
+						}
+					)
+
+					let user = await collection.findOne({userId: userId})
+
+					console.log('this is the user', user[timeTrial], 'we are updating the user')
+
+
+					if(userUpdateOthers) {
+						console.log('we are about to send the new best time')
+						res.send(user)
 						await connection.close()
 						return console.log('the connection to the database has been closed')
 					}
