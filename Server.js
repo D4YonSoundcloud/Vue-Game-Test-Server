@@ -168,6 +168,59 @@ app.post('/login', async (req,res) => {
 
 })
 
+app.put('/updateTime', async (req,res) => {
+	try{
+		console.log('request body (data)', req.body)
+		let userId = req.body.userId;
+		let timeTrial = req.body.timeTrial;
+		let timeTrialTime = req.body.timeTrialTime;
+		let date = req.body.timeDate;
+
+		console.log('here is the update', userId, timeTrial, timeTrialTime, date)
+
+		MongoClient.connect(CONNECT_URL, { useUnifiedTopology: true})
+			.then( async (connection) => {
+				try{
+					console.log('connected to the database!')
+
+					let database = connection.db('Soundcloud-Stardum-Royale-Time-Trials')
+					let collection = database.collection(userCollectionName)
+
+					let updateObject = {
+						time: timeTrialTime,
+						date: date,
+					}
+
+					let timeArrayString = `"${timeTrial}.$.times"`;
+
+					console.log('this is the time array string', timeArrayString)
+
+					let userUpdate = await collection.findOneAndUpdate(
+						{ userId: userId },
+						{ $push: { [timeArrayString]:  updateObject }}
+					)
+
+					let user = await collection.findOne({userId: userId})
+
+					console.log('this is the user', user, 'we are updating the user')
+
+
+					if(userUpdate) {
+						console.log('this user already exist, so we gonna log them in')
+						res.status(200).send(user)
+						await connection.close()
+						return console.log('the connection to the database has been closed')
+					}
+
+				} catch(err) {
+					console.log(err)
+				}
+			})
+	} catch (err) {
+		console.log(err)
+	}
+})
+
 app.get('/time-trial-times/:trial', (req, res) => {
 
 	console.log('this request is being made!')
